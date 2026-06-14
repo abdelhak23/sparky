@@ -11,7 +11,7 @@ import secrets
 import smtplib
 from email.utils import formataddr
 from email.message import EmailMessage
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
@@ -52,9 +52,13 @@ def _send_email_resend(to_email, subject, body, html_body=None):
         },
         method="POST",
     )
-    with urlopen(req, timeout=12) as resp:
-        if resp.status >= 400:
-            raise RuntimeError(f"Resend email failed with status {resp.status}")
+    try:
+        with urlopen(req, timeout=12) as resp:
+            if resp.status >= 400:
+                raise RuntimeError(f"Resend email failed with status {resp.status}")
+    except HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend email failed with status {exc.code}: {details}") from exc
     current_app.logger.info("Verification email sent to %s via Resend HTTPS", to_email)
     return True
 
