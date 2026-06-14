@@ -12,7 +12,7 @@ import smtplib
 from email.utils import formataddr
 from email.message import EmailMessage
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, jwt_required, get_jwt_identity
@@ -27,7 +27,42 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def _send_email_resend(to_email, subject, body, html_body=None):
+    api_key = os.getenv("RESEND_API_KEY", "").strip()
+    if not api_key:
+        return False
+
+    sender_name = os.getenv("SMTP_FROM_NAME", "Spark").strip() or "Spark"
+    sender = os.getenv("RESEND_FROM", os.getenv("SMTP_FROM", "onboarding@resend.dev")).strip()
+    payload = {
+        "from": formataddr((sender_name, sender)),
+        "to": [to_email],
+        "subject": subject,
+        "text": body,
+    }
+    if html_body:
+        payload["html"] = html_body
+
+    req = Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urlopen(req, timeout=12) as resp:
+        if resp.status >= 400:
+            raise RuntimeError(f"Resend email failed with status {resp.status}")
+    current_app.logger.info("Verification email sent to %s via Resend HTTPS", to_email)
+    return True
+
+
 def _send_email(to_email, subject, body, html_body=None):
+    if os.getenv("RESEND_API_KEY", "").strip():
+        return _send_email_resend(to_email, subject, body, html_body)
+
     host = os.getenv("SMTP_HOST", "").strip()
     port = int(os.getenv("SMTP_PORT", "587"))
     username = os.getenv("SMTP_USERNAME", "").strip()
@@ -154,7 +189,8 @@ def _send_verification_email(user):
         sent = _send_email(user.email, "Your Spark verification code", body, html_body)
     except Exception as exc:
         current_app.logger.exception("Failed to send verification OTP to %s: %s", user.email, exc)
-        current_app.logger.warning("Verification OTP for %s: %s", user.email, code)
+        if os.getenv("FLASK_ENV") != "production":
+            current_app.logger.warning("Verification OTP for %s: %s", user.email, code)
         sent = False
     return sent, code
 
