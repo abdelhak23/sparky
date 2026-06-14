@@ -275,6 +275,14 @@ def on_find_match(data):
 
         print(f"[Match] uid={user_id} filters={filters} queue={[(e[0]) for e in queue]}")
 
+        same_user_waiting = next((e for e in queue if e[0] == user_id and e[1] != sid), None)
+        if same_user_waiting:
+            msg = "This account is already searching on another device. Use two different accounts to test matching."
+            socketio.emit("error", {"message": msg}, to=sid)
+            socketio.emit("error", {"message": msg}, to=same_user_waiting[1])
+            print(f"[Match] ❌ uid={user_id} searching from two devices; rejected sid={sid[:8]}")
+            return
+
         # Find partner
         for entry in list(queue):
             cuid, csid = entry[0], entry[1]
