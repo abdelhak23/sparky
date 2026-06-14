@@ -114,16 +114,35 @@ def turn_credentials():
     like Twilio or Xirsys.
     """
     import os
-    turn_url  = os.getenv("TURN_URL",  "")
-    turn_user = os.getenv("TURN_USER", "")
-    turn_pass = os.getenv("TURN_PASS", "")
+    turn_url  = os.getenv("TURN_URL",  "").strip()
+    turn_user = os.getenv("TURN_USER", "").strip()
+    turn_pass = os.getenv("TURN_PASS", "").strip()
+
+    # Accept either "eu-turn3.xirsys.com" or copied values like
+    # "turn:eu-turn3.xirsys.com:3478?transport=udp" from provider dashboards.
+    if turn_url.startswith("turns:"):
+        turn_url = turn_url.removeprefix("turns:")
+    elif turn_url.startswith("turn:"):
+        turn_url = turn_url.removeprefix("turn:")
+    turn_url = turn_url.split("?", 1)[0].split(":", 1)[0].strip("/")
 
     ice_servers = [
         {"urls": "stun:stun.l.google.com:19302"},
     ]
     if turn_url:
         ice_servers.extend([
-            {"urls": f"turn:{turn_url}:80", "username": turn_user, "credential": turn_pass},
-            {"urls": f"turn:{turn_url}:443", "username": turn_user, "credential": turn_pass},
+            {"urls": f"stun:{turn_url}"},
+            {
+                "username": turn_user,
+                "credential": turn_pass,
+                "urls": [
+                    f"turn:{turn_url}:80?transport=udp",
+                    f"turn:{turn_url}:3478?transport=udp",
+                    f"turn:{turn_url}:80?transport=tcp",
+                    f"turn:{turn_url}:3478?transport=tcp",
+                    f"turns:{turn_url}:443?transport=tcp",
+                    f"turns:{turn_url}:5349?transport=tcp",
+                ],
+            },
         ])
     return jsonify({"iceServers": ice_servers}), 200

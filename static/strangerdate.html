@@ -572,6 +572,16 @@ document.querySelectorAll('.stat-num').forEach(el => {
   <!-- ── Spark API ── -->
   <script src="/spark-api.js"></script>
   <script>
+  (async function enterAppIfAlreadySignedIn() {
+    if (!window.SparkAPI || !SparkAPI.isLoggedIn()) return;
+    try {
+      await SparkAPI.me();
+      window.location.href = '/videochat.html';
+    } catch (_) {
+      SparkAPI.logout();
+    }
+  })();
+
   // Update modal login/signup to call real API
   (function() {
     const loginBtn  = document.querySelector('#panel-login .btn-submit');
