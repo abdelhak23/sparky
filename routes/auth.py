@@ -64,7 +64,8 @@ def _send_email_resend(to_email, subject, body, html_body=None):
 
 
 def _send_email(to_email, subject, body, html_body=None):
-    if os.getenv("RESEND_API_KEY", "").strip():
+    provider = os.getenv("EMAIL_PROVIDER", "").strip().lower()
+    if provider != "smtp" and os.getenv("RESEND_API_KEY", "").strip():
         return _send_email_resend(to_email, subject, body, html_body)
 
     host = os.getenv("SMTP_HOST", "").strip()
@@ -86,13 +87,31 @@ def _send_email(to_email, subject, body, html_body=None):
     if html_body:
         msg.add_alternative(html_body, subtype="html")
 
-    with smtplib.SMTP(host, port, timeout=10) as smtp:
-        smtp.starttls()
-        if username:
-            smtp.login(username, password)
-        smtp.send_message(msg)
-    current_app.logger.info("Verification email sent to %s via %s:%s", to_email, host, port)
-    return True
+    ports = [port]
+    if host == "smtp.gmail.com" and port == 587:
+        ports.append(465)
+
+    errors = []
+    for smtp_port in ports:
+        try:
+            if smtp_port == 465:
+                with smtplib.SMTP_SSL(host, smtp_port, timeout=12) as smtp:
+                    if username:
+                        smtp.login(username, password)
+                    smtp.send_message(msg)
+            else:
+                with smtplib.SMTP(host, smtp_port, timeout=12) as smtp:
+                    smtp.starttls()
+                    if username:
+                        smtp.login(username, password)
+                    smtp.send_message(msg)
+            current_app.logger.info("Verification email sent to %s via %s:%s", to_email, host, smtp_port)
+            return True
+        except OSError as exc:
+            errors.append(f"{host}:{smtp_port} {exc}")
+            current_app.logger.warning("SMTP attempt failed for %s via %s:%s: %s", to_email, host, smtp_port, exc)
+
+    raise RuntimeError("All SMTP attempts failed: " + " | ".join(errors))
 
 
 def _send_verification_email(user):
