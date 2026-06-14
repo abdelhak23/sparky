@@ -1,5 +1,8 @@
 [phases.install]
 cmds = ["python -m venv --copies /opt/venv", ". /opt/venv/bin/activate && pip install -r requirements.txt"]
 
+[phases.build]
+cmds = ["python -m py_compile app.py run.py models.py"]
+
 [start]
 cmd = "python run.py"
