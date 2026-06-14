@@ -9,7 +9,7 @@
  *   4. payment-success.html polls /api/payments/verify-session/:id for confirmation
  */
 
-const SparkAPI = (() => {
+var SparkAPI = window.SparkAPI = (() => {
 
   // ── Token storage ──────────────────────────────────────────────────────────
   function getToken()    { return localStorage.getItem("spark_token"); }
