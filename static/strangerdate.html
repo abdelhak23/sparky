@@ -616,6 +616,11 @@ document.querySelectorAll('.stat-num').forEach(el => {
       this.textContent = 'Creating account...'; this.disabled = true;
       try {
         const res = await SparkAPI.register(name, '', email, pw, age, gender);
+        if (res.token || res.user?.is_verified) {
+          await showNotice('Account created', 'You can start using Spark now.', 'Continue');
+          window.location.href = window._pendingTarget || '/videochat.html';
+          return;
+        }
         await showNotice(
           'Check your email',
           res.email_sent

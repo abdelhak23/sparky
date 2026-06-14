@@ -548,6 +548,11 @@ function showNotice(title, message, buttonText = 'OK') {
     this.textContent = 'Creating account…'; this.disabled = true;
     try {
       const res = await SparkAPI.register(fname, lname, email, pw, age, gender);
+      if (res.token || res.user?.is_verified) {
+        await showNotice('Account created', 'You can start using Spark now.', 'Continue');
+        window.location.href = '/videochat.html';
+        return;
+      }
       await showNotice(
         'Check your email',
         res.email_sent

@@ -344,10 +344,13 @@ def register():
     db.session.add(user)
     db.session.commit()
     sent = False
+    token = None
     if verification_required:
         sent, dev_code = _send_verification_email(user)
+    else:
+        token = create_access_token(identity=str(user.id))
 
-    return jsonify({
+    payload = {
         "message": (
             "Account created! Please enter the OTP sent to your email before signing in."
             if verification_required
@@ -355,7 +358,10 @@ def register():
         ),
         "email_sent": sent,
         "user":    user.to_dict(include_private=True),
-    }), 201
+    }
+    if token:
+        payload["token"] = token
+    return jsonify(payload), 201
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
