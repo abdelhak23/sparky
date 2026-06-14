@@ -27,6 +27,12 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def _email_verification_required():
+    return os.getenv("REQUIRE_EMAIL_VERIFICATION", "1").strip().lower() not in {
+        "0", "false", "no", "off"
+    }
+
+
 def _send_email_resend(to_email, subject, body, html_body=None):
     api_key = os.getenv("RESEND_API_KEY", "").strip()
     if not api_key:
@@ -293,6 +299,7 @@ def country_from_request_ip():
 @auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json(silent=True) or {}
+    verification_required = _email_verification_required()
 
     email      = (data.get("email") or "").strip().lower()
     password   = data.get("password") or ""
@@ -332,13 +339,20 @@ def register():
         gender=gender,
         tokens=0,
         last_login=utcnow(),
+        is_verified=not verification_required,
     )
     db.session.add(user)
     db.session.commit()
-    sent, dev_code = _send_verification_email(user)
+    sent = False
+    if verification_required:
+        sent, dev_code = _send_verification_email(user)
 
     return jsonify({
-        "message": "Account created! Please enter the OTP sent to your email before signing in.",
+        "message": (
+            "Account created! Please enter the OTP sent to your email before signing in."
+            if verification_required
+            else "Account created! You can sign in now."
+        ),
         "email_sent": sent,
         "user":    user.to_dict(include_private=True),
     }), 201
@@ -362,7 +376,7 @@ def login():
 
     if not user.is_active:
         return jsonify({"error": "This account has been suspended."}), 403
-    if not user.is_verified:
+    if _email_verification_required() and not user.is_verified:
         return jsonify({
             "error": "Please verify your email before signing in.",
             "needs_verification": True,
