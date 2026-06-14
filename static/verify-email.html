@@ -89,8 +89,10 @@ a,button{display:inline-flex;margin-top:22px;color:#fff;background:linear-gradie
     if (!email) { message.textContent = 'Enter your email first.'; return; }
     resendBtn.disabled = true;
     try {
-      await SparkAPI.resendVerification(email);
-      message.textContent = 'A new OTP code was sent. Please check your inbox.';
+      const res = await SparkAPI.resendVerification(email);
+      message.textContent = res.email_sent
+        ? 'A new OTP code was sent. Please check your inbox.'
+        : 'Could not send OTP email. Please check SMTP variables in Railway and try again.';
     } catch (e) {
       message.textContent = e.message || 'Could not resend OTP code.';
     } finally {

@@ -510,8 +510,14 @@ function showNotice(title, message, buttonText = 'OK') {
       window.location.href = '/videochat.html';
     } catch(e) {
       if (e.data?.needs_verification) {
-        await SparkAPI.resendVerification(email).catch(() => null);
-        await showNotice('Verify your email', 'A new OTP code was sent to your email. Enter it on the verification page before signing in.', 'Enter OTP');
+        const resend = await SparkAPI.resendVerification(email).catch(() => ({ email_sent: false }));
+        await showNotice(
+          'Verify your email',
+          resend.email_sent
+            ? 'A new OTP code was sent to your email. Enter it on the verification page before signing in.'
+            : 'Your account needs verification, but the OTP email could not be sent. Check SMTP variables in Railway, then use Resend Code.',
+          'Enter OTP'
+        );
         window.location.href = '/verify-email.html?email=' + encodeURIComponent(email);
       } else {
         await showNotice('Sign in failed', e.message || 'Login failed. Check your email and password.');
