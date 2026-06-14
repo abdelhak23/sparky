@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Verify Email</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b0a10;--card:#171625;--border:rgba(255,255,255,.08);--text:#f0ecff;--muted:#8581aa;--accent:#ff4e6a;--accent2:#ff8c42;--teal:#48c7be}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:24px}
+.box{width:100%;max-width:460px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px;text-align:center}
+.mark{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;background:rgba(72,199,190,.1);border:1px solid rgba(72,199,190,.25);color:var(--teal)}
+.mark.error{background:rgba(255,78,106,.1);border-color:rgba(255,78,106,.25);color:var(--accent)}
+h1{font-family:'Playfair Display',serif;font-size:1.7rem;margin-bottom:8px}
+p{color:var(--muted);line-height:1.7;font-size:.95rem}
+.field{text-align:left;margin-top:16px}
+.field label{display:block;color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px}
+.field input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:12px 14px;font:inherit;outline:none}
+.field input:focus{border-color:var(--accent)}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+a,button{display:inline-flex;margin-top:22px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:11px 16px;text-decoration:none;font-size:.9rem;font-family:'DM Sans',sans-serif;cursor:pointer}
+.secondary{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text)}
+</style>
+</head>
+<body>
+  <main class="box">
+    <div class="mark" id="mark">#</div>
+    <h1 id="title">Enter your OTP</h1>
+    <p id="message">We sent a 6-digit verification code to your email.</p>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="emailInput" placeholder="you@example.com">
+    </div>
+    <div class="field">
+      <label>OTP Code</label>
+      <input type="text" id="codeInput" placeholder="000000" inputmode="numeric" maxlength="6">
+    </div>
+    <div class="actions">
+      <button id="verifyBtn">Verify Email</button>
+      <button class="secondary" id="resendBtn">Resend Code</button>
+    </div>
+    <a href="/login.html" id="action" style="display:none">Go to Sign In</a>
+  </main>
+
+<script src="/spark-api.js"></script>
+<script>
+(function () {
+  const emailFromUrl = new URLSearchParams(location.search).get('email') || '';
+  const title = document.getElementById('title');
+  const message = document.getElementById('message');
+  const action = document.getElementById('action');
+  const mark = document.getElementById('mark');
+  const emailInput = document.getElementById('emailInput');
+  const codeInput = document.getElementById('codeInput');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const resendBtn = document.getElementById('resendBtn');
+  emailInput.value = emailFromUrl;
+
+  codeInput.addEventListener('input', () => {
+    codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const code = codeInput.value.trim();
+    if (!email || !code) { message.textContent = 'Enter your email and OTP code.'; return; }
+    verifyBtn.disabled = true;
+    try {
+      const res = await SparkAPI.verifyEmail(email, code);
+      mark.classList.remove('error');
+      mark.textContent = '✓';
+      title.textContent = 'Email verified';
+      message.textContent = res.message || 'Your email has been verified. You can sign in now.';
+      action.style.display = 'inline-flex';
+    } catch (e) {
+      mark.classList.add('error');
+      mark.textContent = '!';
+      title.textContent = 'Verification failed';
+      message.textContent = e.message || 'Invalid or expired OTP code.';
+    } finally {
+      verifyBtn.disabled = false;
+    }
+  });
+
+  resendBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    if (!email) { message.textContent = 'Enter your email first.'; return; }
+    resendBtn.disabled = true;
+    try {
+      await SparkAPI.resendVerification(email);
+      message.textContent = 'A new OTP code was sent. Please check your inbox.';
+    } catch (e) {
+      message.textContent = e.message || 'Could not resend OTP code.';
+    } finally {
+      resendBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

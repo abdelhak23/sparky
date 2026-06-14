@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Spark — Video Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══ RESET & VARS ═══ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#080710; --surface:#10101e; --card:#161626; --panel:#12121f;
+  --accent1:#ff4e6a; --accent2:#ff8c42; --accent3:#c77dff;
+  --gold:#f5c842; --teal:#48c7be;
+  --text:#f0ecff; --muted:#6e6b90;
+  --border:rgba(255,255,255,0.07);
+  --glow1:rgba(255,78,106,0.4); --glow3:rgba(199,125,255,0.3);
+  --gold-glow:rgba(245,200,66,0.35);
+  --topbar-h: 58px;
+  --controls-h: 80px;
+}
+
+/* Use dvh so mobile browser toolbars don't cause layout shifts */
+html { height: 100%; height: 100dvh; }
+html, body { overflow: hidden; }
+body {
+  height: 100%; height: 100dvh;
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-weight: 300;
+  display: flex; flex-direction: column;
+  /* Prevent rubber-band scroll on iOS */
+  overscroll-behavior: none;
+}
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  background-size:200px; opacity:.5;
+}
+
+/* ══ TOP BAR — sticky, never scrolls ══ */
+.topbar {
+  height: var(--topbar-h); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  background: rgba(8,7,16,.95); border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px); z-index: 200; gap: 8px;
+  position: sticky; top: 0;
+}
+.topbar-logo { font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:900; background:linear-gradient(135deg,var(--accent1),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none; flex-shrink:0; }
+.topbar-center { display:flex; align-items:center; gap:8px; flex:1; justify-content:center; min-width:0; overflow:hidden; }
+.status-pill { display:flex; align-items:center; gap:6px; background:rgba(72,199,190,.1); border:1px solid rgba(72,199,190,.25); color:var(--teal); font-size:.72rem; font-weight:500; padding:4px 10px; border-radius:50px; letter-spacing:.3px; white-space:nowrap; }
+.status-dot { width:6px; height:6px; border-radius:50%; background:var(--teal); animation:blink 1.4s ease-in-out infinite; flex-shrink:0; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.timer { font-size:.8rem; color:var(--muted); font-variant-numeric:tabular-nums; letter-spacing:.5px; min-width:40px; text-align:center; flex-shrink:0; }
+.token-badge { display:flex; align-items:center; gap:5px; background:rgba(245,200,66,.1); border:1px solid rgba(245,200,66,.25); color:var(--gold); font-size:.75rem; font-weight:500; padding:5px 10px; border-radius:50px; cursor:pointer; transition:background .2s; white-space:nowrap; flex-shrink:0; min-height:44px; }
+.token-badge:hover { background:rgba(245,200,66,.18); }
+.token-badge svg { width:13px; height:13px; }
+.token-count { font-weight:600; }
+.token-badge.low { background:rgba(255,78,106,.1); border-color:rgba(255,78,106,.3); color:var(--accent1); animation:tokenPulse 1.5s ease-in-out infinite; }
+@keyframes tokenPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,78,106,.4)} 50%{box-shadow:0 0 0 6px rgba(255,78,106,0)} }
+.topbar-right { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+/* All topbar buttons minimum 44×44 touch targets */
+.icon-btn { width:44px; height:44px; border-radius:10px; background:rgba(255,255,255,.05); border:1px solid var(--border); color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .2s,color .2s; flex-shrink:0; }
+.icon-btn:hover, .icon-btn:active { background:rgba(255,255,255,.1); color:var(--text); }
+.icon-btn svg { width:16px; height:16px; }
+.btn-home { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--muted); font-family:'DM Sans',sans-serif; font-size:.8rem; padding:7px 12px; border-radius:10px; cursor:pointer; transition:background .2s,color .2s; text-decoration:none; min-height:44px; white-space:nowrap; }
+.btn-home:hover { background:rgba(255,255,255,.12); color:var(--text); }
+.btn-home svg { width:14px; height:14px; }
+
+/* ══ LAYOUT ══ */
+.main { flex:1; display:flex; overflow:hidden; min-height:0; }
+
+/* ══ VIDEO AREA ══ */
+.video-area { flex:1; position:relative; background:#05050e; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.remote-video { width:100%; height:100%; object-fit:contain; display:block; background:#05050e; }
+.video-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:2; padding:20px; }
+.vp-orb { width:120px; height:120px; border-radius:50%; background:radial-gradient(circle at 35% 35%,rgba(255,78,106,.25),rgba(199,125,255,.1) 60%,transparent); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; animation:floatOrb 5s ease-in-out infinite alternate; font-family:'Playfair Display',serif; font-size:2.5rem; font-weight:700; color:rgba(255,255,255,.15); flex-shrink:0; }
+@keyframes floatOrb { from{transform:translateY(0)} to{transform:translateY(-10px)} }
+.vp-title { font-family:'Playfair Display',serif; font-size:clamp(1.2rem,4vw,1.6rem); font-weight:700; text-align:center; line-height:1.3; }
+.vp-title em { font-style:italic; color:var(--accent1); }
+.vp-sub { color:var(--muted); font-size:.88rem; text-align:center; }
+.searching-ring { width:140px; height:140px; border-radius:50%; position:relative; display:none; align-items:center; justify-content:center; flex-shrink:0; }
+.searching-ring::before,.searching-ring::after { content:''; position:absolute; inset:0; border-radius:50%; border:2px solid transparent; border-top-color:var(--accent1); animation:spin 1.2s linear infinite; }
+.searching-ring::after { border-top-color:var(--accent3); inset:12px; animation-delay:-.4s; animation-duration:1.6s; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.searching-ring-inner { width:90px; height:90px; border-radius:50%; background:rgba(255,78,106,.08); border:1px solid rgba(255,78,106,.2); display:flex; align-items:center; justify-content:center; }
+.searching-ring-inner svg { width:32px; height:32px; }
+
+/* LOCAL PIP — stays inside safe area, draggable */
+.local-video-wrap {
+  position:absolute; bottom:90px; right:12px; z-index:10;
+  width:110px; height:82px; border-radius:12px; overflow:hidden;
+  border:2px solid rgba(255,255,255,.15); box-shadow:0 6px 24px rgba(0,0,0,.6);
+  cursor:move; transition:box-shadow .2s; background:var(--card); display:none;
+  /* keep within safe area on iOS */
+  max-width: calc(50vw - 12px);
+}
+.local-video-wrap:hover { box-shadow:0 10px 32px rgba(0,0,0,.7); }
+.local-video { width:100%; height:100%; object-fit:contain; background:var(--card); display:block; }
+.local-label { position:absolute; bottom:4px; left:6px; font-size:.62rem; color:rgba(255,255,255,.7); font-weight:500; background:rgba(0,0,0,.5); padding:1px 6px; border-radius:4px; }
+
+/* STRANGER BADGE */
+.stranger-badge { position:absolute; top:12px; left:12px; z-index:10; background:rgba(8,7,16,.8); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:8px 12px; display:none; align-items:center; gap:10px; max-width:calc(100vw - 24px); }
+.stranger-badge.visible { display:flex; }
+.sb-avatar { width:32px; height:32px; border-radius:50%; background:rgba(199,125,255,.25); display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-weight:700; font-size:.85rem; flex-shrink:0; }
+.sb-name { font-size:.85rem; font-weight:500; }
+.sb-loc { font-size:.68rem; color:var(--muted); margin-top:1px; }
+.premium-tag { font-size:.58rem; background:rgba(245,200,66,.15); border:1px solid rgba(245,200,66,.3); color:var(--gold); padding:2px 6px; border-radius:50px; margin-top:2px; display:inline-block; }
+
+/* REACTION TOAST */
+.reaction-toast { position:absolute; top:16px; left:50%; transform:translateX(-50%); z-index:20; background:rgba(8,7,16,.9); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:50px; padding:8px 18px; font-size:.82rem; color:var(--text); opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90vw; overflow:hidden; text-overflow:ellipsis; }
+.reaction-toast.show { opacity:1; }
+
+/* FOUND OVERLAY */
+.found-overlay { position:absolute; inset:0; z-index:12; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center,rgba(255,78,106,.12) 0%,transparent 70%); pointer-events:none; opacity:0; transition:opacity .5s; }
+.found-overlay.show { opacity:1; }
+.found-badge { background:rgba(8,7,16,.88); backdrop-filter:blur(12px); border:1px solid rgba(255,78,106,.3); border-radius:18px; padding:18px 28px; text-align:center; margin:16px; }
+.found-badge .f-title { font-family:'Playfair Display',serif; font-size:1.3rem; font-weight:700; color:var(--accent1); }
+.found-badge .f-sub { font-size:.82rem; color:var(--muted); margin-top:4px; }
+
+/* TOKEN FLOAT */
+.token-float { position:absolute; top:68px; right:16px; z-index:30; font-size:.8rem; font-weight:600; color:var(--gold); pointer-events:none; opacity:0; }
+.token-float.animate { animation:floatUp .9s ease forwards; }
+@keyframes floatUp { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-28px)} }
+
+/* GIFT BUTTON */
+.gift-float-btn { position:absolute; top:12px; right:12px; z-index:15; background:linear-gradient(135deg,rgba(245,200,66,.2),rgba(255,140,66,.15)); border:1px solid rgba(245,200,66,.35); border-radius:12px; padding:8px 14px; display:none; align-items:center; gap:6px; cursor:pointer; transition:background .2s; backdrop-filter:blur(8px); min-height:44px; }
+.gift-float-btn:active { background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(255,140,66,.22)); }
+.gift-float-btn svg { width:16px; height:16px; color:var(--gold); }
+.gift-float-btn span { font-size:.8rem; font-weight:500; color:var(--gold); }
+.state-connected .gift-float-btn { display:flex; }
+
+/* ══ CONTROLS — bottom bar, never wraps on mobile ══ */
+.controls {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 12px 12px 16px;
+  /* extra bottom padding for iPhone home indicator */
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  background: linear-gradient(to top,rgba(8,7,16,.97) 0%,transparent 100%);
+  /* horizontal scroll if too many buttons — prevents overflow */
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.controls::-webkit-scrollbar { display: none; }
+
+.ctrl-btn {
+  width: 48px; height: 48px;  /* ≥44px touch target */
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.08); backdrop-filter: blur(8px);
+  color: var(--text); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background .2s,border-color .2s,transform .15s;
+  flex-shrink: 0;
+  /* touch callout off on iOS */
+  -webkit-tap-highlight-color: transparent;
+}
+.ctrl-btn svg { width: 20px; height: 20px; }
+.ctrl-btn:hover { background: rgba(255,255,255,.16); }
+.ctrl-btn:active { transform: scale(.93); }
+.ctrl-btn.off { background:rgba(255,78,106,.12); border-color:rgba(255,78,106,.3); color:var(--accent1); }
+.ctrl-btn.danger { background:rgba(255,78,106,.12); border-color:rgba(255,78,106,.25); color:var(--accent1); }
+.ctrl-btn.danger:active { background:rgba(255,78,106,.25); }
+
+.btn-next {
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg,var(--accent1),var(--accent2));
+  color: #fff; border: none; border-radius: 14px;
+  padding: 0 20px; height: 48px;
+  font-family: 'DM Sans',sans-serif; font-size: .9rem; font-weight: 500;
+  cursor: pointer; box-shadow: 0 4px 20px var(--glow1);
+  transition: transform .2s,box-shadow .2s; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-next:active { transform: scale(.96); }
+.btn-next svg { width: 17px; height: 17px; }
+.ctrl-sep { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+
+/* ══ SIDEBAR — desktop inline, mobile drawer ══ */
+.sidebar {
+  width: 300px; flex-shrink: 0; display: flex; flex-direction: column;
+  background: var(--panel); border-left: 1px solid var(--border);
+  transition: width .3s ease;
+}
+.sidebar.collapsed { width: 0; overflow: hidden; }
+
+/* Mobile sidebar backdrop */
+.sidebar-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 299;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+}
+.sidebar-backdrop.open { display: block; }
+
+.sidebar-header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.sidebar-header h3 { font-size: .88rem; font-weight: 500; }
+
+/* Chat messages — always scrollable, touch-friendly */
+.chat-messages {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 12px 8px;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.msg { max-width: 85%; width: fit-content; padding: 9px 12px; border-radius: 14px; font-size: .86rem; line-height: 1.55; animation: msgIn .25s ease; overflow-wrap: break-word; }
+@keyframes msgIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.msg.them { align-self:flex-start; background:rgba(255,255,255,.07); border-radius:4px 14px 14px 14px; }
+.msg.me   { align-self:flex-end;   background:var(--accent1); border-radius:14px 4px 14px 14px; color:#fff; }
+.msg.gift-msg { align-self:center; background:linear-gradient(135deg,rgba(245,200,66,.12),rgba(255,140,66,.08)); border:1px solid rgba(245,200,66,.2); border-radius:14px; text-align:center; padding:10px 18px; max-width:95%; }
+.msg.image-msg { padding:5px; max-width:88%; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.08); }
+.msg.image-msg.me { background:rgba(255,78,106,.22); border-color:rgba(255,78,106,.25); }
+.chat-photo { display:block; max-width:220px; width:100%; max-height:260px; object-fit:cover; border-radius:10px; cursor:pointer; }
+.msg-meta { font-size:.64rem; color:rgba(255,255,255,.3); margin-top:4px; }
+.msg.me .msg-meta { text-align:right; }
+.system-msg { text-align:center; font-size:.72rem; color:var(--muted); padding:4px 0; }
+
+.chat-input-wrap {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 7px;
+  align-items: end;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+}
+.chat-input { min-width:0; width:100%; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:12px; padding:10px 12px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:16px; /* 16px prevents iOS zoom */ outline:none; resize:none; max-height:90px; min-height:42px; transition:border-color .2s; -webkit-overflow-scrolling:touch; }
+.chat-input:focus { border-color:rgba(255,78,106,.4); }
+.chat-input::placeholder { color:#4a4870; }
+.send-btn { width:42px; height:42px; border-radius:11px; background:var(--accent1); border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:transform .15s; box-shadow:0 4px 14px var(--glow1); -webkit-tap-highlight-color:transparent; }
+.send-btn:active { transform:scale(.93); }
+.send-btn svg { width:16px; height:16px; }
+.photo-btn { width:42px; height:42px; border-radius:11px; border:1px solid var(--border); background:rgba(255,255,255,.06); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; -webkit-tap-highlight-color:transparent; }
+.photo-btn:active { transform:scale(.93); }
+.photo-btn svg { width:17px; height:17px; }
+
+/* ══ STATES ══ */
+body.state-idle .video-placeholder      { display:flex; }
+body.state-idle .stranger-badge         { display:none !important; }
+body.state-idle .local-video-wrap       { display:none; }
+body.state-searching .video-placeholder  { display:flex; }
+body.state-searching .vp-idle-content   { display:none; }
+body.state-searching .searching-ring    { display:flex; }
+body.state-searching .vp-searching-content { display:flex; }
+body.state-searching .local-video-wrap  { display:block; }
+body.state-connected .video-placeholder  { display:none; }
+body.state-connected .stranger-badge    { display:flex; }
+body.state-connected .local-video-wrap  { display:block; }
+
+/* ══ MODALS — scrollable on mobile ══ */
+.overlay {
+  position: fixed; inset: 0; z-index: 800;
+  background: rgba(0,0,0,.8); backdrop-filter: blur(10px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+  /* align-items:flex-end on mobile = bottom sheet feel */
+  padding: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.overlay.open { opacity:1; pointer-events:all; }
+
+.modal-box {
+  background: var(--card); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 24px 24px 0 0;  /* bottom sheet on mobile */
+  padding: 20px 20px 24px;
+  width: 100%; max-width: 100%;
+  /* KEY: constrain height to viewport, make content scroll */
+  max-height: 92dvh;
+  display: flex; flex-direction: column;
+  transform: translateY(40px); transition: transform .35s cubic-bezier(.23,1,.32,1);
+  overflow: hidden;  /* clip, inner scrolls */
+}
+.overlay.open .modal-box { transform: translateY(0); }
+
+/* Drag handle for bottom sheet */
+.modal-box::before {
+  content: ''; display: block; width: 40px; height: 4px;
+  background: rgba(255,255,255,.2); border-radius: 2px;
+  margin: 0 auto 16px; flex-shrink: 0;
+}
+
+/* Scrollable content inside modal */
+.modal-scroll-body {
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  flex: 1; min-height: 0;
+  padding-right: 2px; /* avoid scrollbar overlap */
+}
+
+.modal-box h3 { font-family:'Playfair Display',serif; font-size:1.25rem; font-weight:700; margin-bottom:6px; flex-shrink:0; }
+.modal-box .sub { color:var(--muted); font-size:.84rem; margin-bottom:18px; line-height:1.6; flex-shrink:0; }
+
+/* ══ FILTER MODAL ══ */
+.filter-section { margin-bottom:18px; }
+.filter-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.premium-badge-sm { font-size:.58rem; background:linear-gradient(135deg,var(--gold),var(--accent2)); color:#000; padding:2px 7px; border-radius:50px; font-weight:700; }
+.filter-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { padding:8px 14px; border-radius:50px; font-size:.8rem; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--muted); cursor:pointer; transition:all .2s; min-height:36px; display:flex; align-items:center; -webkit-tap-highlight-color:transparent; }
+.chip:active { transform:scale(.96); }
+.chip.sel { background:rgba(255,78,106,.15); border-color:rgba(255,78,106,.4); color:var(--accent1); }
+.chip.gold.sel { background:rgba(245,200,66,.15); border-color:rgba(245,200,66,.4); color:var(--gold); }
+.chip.locked { opacity:.45; cursor:not-allowed; }
+.token-cost-row { display:flex; align-items:center; justify-content:space-between; background:rgba(245,200,66,.07); border:1px solid rgba(245,200,66,.18); border-radius:12px; padding:12px 14px; margin-top:16px; flex-wrap:wrap; gap:8px; }
+.tcr-label { font-size:.84rem; color:var(--text); }
+.tcr-amount { display:flex; align-items:center; gap:6px; font-size:.88rem; font-weight:600; color:var(--gold); }
+.tcr-amount svg { width:13px; height:13px; }
+.filter-actions { display:flex; gap:10px; margin-top:16px; flex-shrink:0; }
+.btn-cancel-sm { flex:1; background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--muted); border-radius:12px; padding:13px 11px; font-family:'DM Sans',sans-serif; font-size:.88rem; cursor:pointer; min-height:44px; }
+.btn-cancel-sm:active { background:rgba(255,255,255,.1); }
+.btn-apply-filters { flex:2; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; border:none; border-radius:12px; padding:13px 11px; font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; cursor:pointer; box-shadow:0 4px 16px var(--glow1); min-height:44px; }
+.upgrade-banner { background:linear-gradient(135deg,rgba(245,200,66,.1),rgba(199,125,255,.08)); border:1px solid rgba(245,200,66,.22); border-radius:14px; padding:12px 14px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.ub-text { font-size:.8rem; color:var(--text); line-height:1.5; }
+.ub-text strong { color:var(--gold); }
+.btn-upgrade-sm { background:linear-gradient(135deg,var(--gold),var(--accent2)); color:#000; border:none; border-radius:10px; padding:9px 14px; font-family:'DM Sans',sans-serif; font-size:.8rem; font-weight:600; cursor:pointer; white-space:nowrap; min-height:44px; }
+
+/* ══ GIFT MODAL ══ */
+.gift-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+.gift-item { border:1px solid var(--border); border-radius:12px; padding:12px 6px; text-align:center; cursor:pointer; transition:all .2s; background:rgba(255,255,255,.03); -webkit-tap-highlight-color:transparent; }
+.gift-item:active { transform:scale(.95); }
+.gift-item.selected { border-color:rgba(245,200,66,.6); background:rgba(245,200,66,.12); }
+.gift-icon { font-size:1.6rem; margin-bottom:4px; line-height:1; }
+.gift-name { font-size:.62rem; color:var(--muted); margin-bottom:3px; }
+.gift-cost { font-size:.68rem; font-weight:600; color:var(--gold); display:flex; align-items:center; justify-content:center; gap:2px; }
+.gift-cost svg { width:10px; height:10px; }
+.gift-info { background:rgba(72,199,190,.07); border:1px solid rgba(72,199,190,.18); border-radius:12px; padding:10px 12px; margin-bottom:14px; font-size:.8rem; color:var(--teal); line-height:1.6; }
+.gift-info strong { color:var(--text); }
+.gift-send-row { display:flex; gap:10px; flex-shrink:0; }
+.btn-send-gift { flex:1; background:linear-gradient(135deg,var(--gold),var(--accent2)); color:#000; border:none; border-radius:12px; padding:13px; font-family:'DM Sans',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; box-shadow:0 4px 18px var(--gold-glow); min-height:44px; }
+
+/* ══ TOKEN PURCHASE MODAL ══ */
+.token-packs { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:20px; }
+.token-pack { border:1px solid var(--border); border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer; transition:all .2s; background:rgba(255,255,255,.03); position:relative; -webkit-tap-highlight-color:transparent; }
+.token-pack:active { transform:scale(.97); }
+.token-pack.selected { border-color:var(--gold); background:rgba(245,200,66,.1); }
+.pack-popular { position:absolute; top:-9px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,var(--gold),var(--accent2)); color:#000; font-size:.58rem; font-weight:700; padding:2px 8px; border-radius:50px; white-space:nowrap; }
+.pack-tokens { font-size:1.4rem; font-weight:700; font-family:'Playfair Display',serif; color:var(--gold); line-height:1; }
+.pack-label { font-size:.65rem; color:var(--muted); margin:3px 0 6px; }
+.pack-price { font-size:.92rem; font-weight:600; color:var(--text); }
+.pack-per { font-size:.62rem; color:var(--muted); margin-top:2px; }
+.pack-bonus { font-size:.62rem; color:var(--teal); margin-top:2px; }
+.payment-methods { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.pm-btn { flex:1; min-width:72px; border:1px solid var(--border); background:rgba(255,255,255,.04); border-radius:10px; padding:10px 6px; display:flex; align-items:center; justify-content:center; gap:5px; font-size:.75rem; color:var(--muted); cursor:pointer; transition:all .2s; min-height:44px; }
+.pm-btn.active { border-color:rgba(245,200,66,.4); color:var(--gold); background:rgba(245,200,66,.08); }
+.pm-btn svg { width:14px; height:14px; }
+.btn-buy { width:100%; background:linear-gradient(135deg,var(--gold),var(--accent2)); color:#000; border:none; border-radius:14px; padding:14px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:700; cursor:pointer; box-shadow:0 4px 20px var(--gold-glow); min-height:44px; flex-shrink:0; }
+.btn-buy:active { transform:scale(.98); }
+.secure-note { text-align:center; font-size:.7rem; color:var(--muted); margin-top:10px; display:flex; align-items:center; justify-content:center; gap:5px; flex-shrink:0; }
+.secure-note svg { width:11px; height:11px; }
+
+/* ══ NO TOKENS MODAL ══ */
+#noTokenModal .modal-box { text-align:center; }
+.nt-icon { width:64px; height:64px; border-radius:50%; background:rgba(255,78,106,.1); border:2px solid rgba(255,78,106,.25); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+.nt-icon svg { width:28px; height:28px; color:var(--accent1); }
+
+/* ══ REPORT MODAL ══ */
+.report-options { display:flex; flex-direction:column; gap:7px; margin-bottom:16px; }
+.report-opt { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:rgba(255,255,255,.03); cursor:pointer; font-size:.86rem; color:var(--text); min-height:44px; -webkit-tap-highlight-color:transparent; }
+.report-opt:active { background:rgba(255,78,106,.08); border-color:rgba(255,78,106,.3); }
+.report-opt input[type=radio] { accent-color:var(--accent1); width:16px; height:16px; flex-shrink:0; }
+.report-actions { display:flex; gap:10px; flex-shrink:0; }
+.btn-report-send { flex:1; background:var(--accent1); color:#fff; border:none; border-radius:11px; padding:13px; font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; cursor:pointer; min-height:44px; }
+
+/* ══ MISC ══ */
+.interests-panel { position:absolute; top:68px; left:12px; z-index:15; background:rgba(8,7,16,.92); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:14px; width:190px; display:none; }
+.interests-panel.open { display:block; animation:slideIn .3s ease; }
+@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+.ip-title { font-size:.7rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+.ip-tags { display:flex; flex-wrap:wrap; gap:5px; }
+.ip-tag { padding:6px 10px; border-radius:50px; font-size:.72rem; border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--muted); cursor:pointer; transition:all .2s; min-height:32px; display:flex; align-items:center; }
+.ip-tag.selected { background:rgba(255,78,106,.15); border-color:rgba(255,78,106,.4); color:var(--accent1); }
+.ip-open-full { width:100%; margin-top:10px; background:var(--accent1); color:#fff; border:none; border-radius:10px; padding:8px; font-family:'DM Sans',sans-serif; font-size:.78rem; font-weight:500; cursor:pointer; min-height:36px; }
+
+[data-tip] { position:relative; }
+/* Hide tooltips on touch — they don't work on mobile anyway */
+@media (hover:hover) {
+  [data-tip]:hover::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%); background:rgba(8,7,16,.95); border:1px solid var(--border); color:var(--text); font-size:.68rem; padding:4px 8px; border-radius:7px; white-space:nowrap; pointer-events:none; z-index:999; }
+}
+
+@keyframes connectPulse { 0%{box-shadow:0 0 0 0 rgba(72,199,190,.5)} 70%{box-shadow:0 0 0 14px rgba(72,199,190,0)} 100%{box-shadow:0 0 0 0 rgba(72,199,190,0)} }
+.pulse-anim { animation:connectPulse .8s ease 2; }
+
+/* ══ DESKTOP overrides (≥769px) ══ */
+@media (min-width:769px) {
+  .overlay { align-items:center; padding:20px; }
+  .modal-box { border-radius:24px; max-width:520px; max-height:90dvh; }
+  .modal-box::before { display:none; }
+  #filterModal .modal-box { max-width:500px; }
+  #giftModal .modal-box { max-width:480px; }
+  #reportModal .modal-box { max-width:360px; }
+  #noTokenModal .modal-box { max-width:400px; text-align:center; }
+  .overlay.open .modal-box { transform:scale(1); }
+  .modal-box { transform:scale(.96); }
+  .local-video-wrap { width:160px; height:120px; bottom:96px; right:20px; }
+  .sidebar { transition:width .3s ease; }
+}
+
+/* ══ MOBILE (≤768px) ══ */
+@media (max-width:768px) {
+  :root {
+    --topbar-h: 54px;
+    --controls-h: 76px;
+  }
+
+  .topbar {
+    height: var(--topbar-h);
+    padding: 0 max(8px, env(safe-area-inset-right, 8px)) 0 max(8px, env(safe-area-inset-left, 8px));
+    gap: 6px;
+  }
+  .topbar-logo {
+    font-size: 1rem;
+    max-width: 54px;
+    overflow: hidden;
+  }
+  .topbar-center {
+    display: none;
+  }
+  .topbar-right {
+    gap: 4px;
+    margin-left: auto;
+  }
+  .icon-btn,
+  .btn-home,
+  .token-badge {
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+  .token-badge {
+    gap: 0;
+    font-size: 0;
+    overflow: hidden;
+  }
+  .token-count {
+    display: none;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(42px, 1fr));
+    align-items: center;
+    justify-content: stretch;
+    gap: 6px;
+    padding: 10px max(8px, env(safe-area-inset-right, 8px)) max(12px, env(safe-area-inset-bottom, 12px)) max(8px, env(safe-area-inset-left, 8px));
+    overflow: visible;
+  }
+  .ctrl-sep {
+    display: none;
+  }
+  .ctrl-btn,
+  .btn-next {
+    width: 100%;
+    min-width: 0;
+    height: 46px;
+    border-radius: 13px;
+  }
+  .btn-next {
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+  .btn-next span {
+    display: none;
+  }
+  .btn-next svg {
+    width: 20px;
+    height: 20px;
+  }
+  .local-video-wrap {
+    bottom: calc(76px + max(10px, env(safe-area-inset-bottom, 10px)));
+    right: max(10px, env(safe-area-inset-right, 10px));
+  }
+
+  /* Sidebar becomes a full-height drawer */
+  .sidebar {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(94vw, 360px); max-width: none;
+    z-index: 300;
+    transform: translateX(100%);
+    transition: transform .3s cubic-bezier(.23,1,.32,1);
+    border-left: 1px solid var(--border);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  /* Hide token packs to 2 col */
+  .token-packs { grid-template-columns: repeat(2,1fr); }
+  /* Gift grid 3 col */
+  .gift-grid { grid-template-columns: repeat(3,1fr); }
+  .chat-input-wrap {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: max(8px, env(safe-area-inset-right, 8px));
+  }
+  .photo-btn,
+  .send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+  .chat-input {
+    min-height: 40px;
+    padding: 9px 10px;
+  }
+  /* Topbar — hide labels, show only icons */
+  .btn-home span, .token-badge span:last-child { display:none; }
+  .btn-home { padding:0; width:42px; justify-content:center; }
+  /* Status pill shorter */
+  .status-pill { font-size:.68rem; padding:4px 8px; }
+}
+</style>
+</head>
+<body class="state-idle">
+
+<!-- Mobile sidebar backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- ══ TOP BAR ══ -->
+<div class="topbar">
+  <a href="strangerdate.html" class="topbar-logo">Spark</a>
+
+  <div class="topbar-center">
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready to connect</span>
+    </div>
+    <div class="timer" id="timer" style="display:none">00:00</div>
+  </div>
+
+  <div class="topbar-right">
+    <!-- TOKEN BADGE -->
+    <div class="token-badge" id="tokenBadge" onclick="openModal('tokenModal')" data-tip="Buy Tokens">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="rgba(245,200,66,.2)" stroke="#f5c842" stroke-width="1.5"/><path d="M12 6v1.5M12 16.5V18M8.5 9.5l1.06 1.06M14.44 13.44l1.06 1.06M7 12h1.5M15.5 12H17M8.5 14.5l1.06-1.06M14.44 10.56l1.06-1.06" stroke="#f5c842" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="#f5c842"/></svg>
+      <span class="token-count" id="tokenCount">0</span> Tokens
+    </div>
+
+    <button class="icon-btn" id="toggleInterests" data-tip="Quick Interests">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>
+    </button>
+    <button class="icon-btn" id="filterBtn" data-tip="Premium Filters" onclick="openModal('filterModal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+    </button>
+    <a class="icon-btn" href="/cashout.html" data-tip="Cash Out Gifts" aria-label="Cash out gifts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M7 10h.01M17 14h.01"/></svg>
+    </a>
+    <button class="icon-btn" id="toggleSidebar" data-tip="Chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    </button>
+    <a href="strangerdate.html" class="btn-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </a>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+
+  <!-- VIDEO AREA -->
+  <div class="video-area" id="videoArea">
+    <video class="remote-video" id="remoteVideo" autoplay playsinline webkit-playsinline style="display:none"></video>
+
+    <!-- PLACEHOLDER -->
+    <div class="video-placeholder" id="videoPlaceholder">
+      <!-- IDLE -->
+      <div class="vp-idle-content" style="display:flex;flex-direction:column;align-items:center;gap:20px;">
+        <div class="vp-orb">?</div>
+        <div class="vp-title">Find your next<br><em>connection</em></div>
+        <div class="vp-sub">Press Start to meet a stranger from anywhere in the world</div>
+        <div id="camStatus" style="font-size:.78rem;color:var(--muted);margin-bottom:8px;display:none">
+          <span id="camStatusIcon">📷</span> <span id="camStatusText">Checking camera...</span>
+        </div>
+        <button class="btn-next" id="startBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+          Start Video Chat
+        </button>
+      </div>
+      <!-- SEARCHING -->
+      <div class="vp-searching-content" style="display:none;flex-direction:column;align-items:center;gap:20px;">
+        <div class="searching-ring">
+          <div class="searching-ring-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#ff4e6a" stroke-width="1.5"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+          </div>
+        </div>
+        <div class="vp-title" style="font-size:1.3rem">Looking for someone<br><em>interesting...</em></div>
+        <div class="vp-sub" id="searchSub">Applying your filters...</div>
+      </div>
+    </div>
+
+    <!-- STRANGER BADGE -->
+    <div class="stranger-badge" id="strangerBadge">
+      <div class="sb-avatar" id="sbAvatar">?</div>
+      <div>
+        <div class="sb-name" id="sbName">—</div>
+        <div class="sb-loc" id="sbLoc">—</div>
+        <div class="premium-tag" id="sbPremiumTag" style="display:none">Premium Match</div>
+      </div>
+    </div>
+
+    <!-- GIFT BUTTON (visible when connected) -->
+    <div class="gift-float-btn" id="giftFloatBtn" onclick="openModal('giftModal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>
+      <span>Send Gift</span>
+    </div>
+
+    <!-- TOKEN FLOAT INDICATOR -->
+    <div class="token-float" id="tokenFloat">-1 Token</div>
+
+    <!-- FOUND OVERLAY -->
+    <div class="found-overlay" id="foundOverlay">
+      <div class="found-badge">
+        <div class="f-title">Stranger Found!</div>
+        <div class="f-sub" id="foundSub">Your conversation is starting...</div>
+      </div>
+    </div>
+
+    <!-- REACTION TOAST -->
+    <div class="reaction-toast" id="reactionToast"></div>
+
+    <!-- LOCAL VIDEO PiP -->
+    <div class="local-video-wrap" id="localWrap">
+      <video class="local-video" id="localVideo" autoplay playsinline webkit-playsinline muted></video>
+      <div class="local-label">You</div>
+    </div>
+
+    <!-- QUICK INTERESTS -->
+    <div class="interests-panel" id="interestsPanel">
+      <div class="ip-title">Quick Interests</div>
+      <div class="ip-tags" id="ipTags">
+        <span class="ip-tag">Music</span><span class="ip-tag">Travel</span>
+        <span class="ip-tag">Gaming</span><span class="ip-tag">Art</span>
+        <span class="ip-tag">Tech</span><span class="ip-tag">Books</span>
+        <span class="ip-tag">Food</span><span class="ip-tag">Sports</span>
+      </div>
+      <button class="ip-open-full" onclick="closePanel();openModal('filterModal')">All Filters</button>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls" id="controls">
+      <button class="ctrl-btn" id="btnMic" data-tip="Mute mic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+      </button>
+      <button class="ctrl-btn" id="btnCam" data-tip="Turn off camera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      </button>
+      <div class="ctrl-sep"></div>
+      <button class="btn-next" id="btnNext">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        <span id="nextLabel">Start</span>
+      </button>
+      <div class="ctrl-sep"></div>
+      <button class="ctrl-btn" id="btnReact" data-tip="Send reaction">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+      </button>
+      <button class="ctrl-btn danger" id="btnReport" data-tip="Report user">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </button>
+      <button class="ctrl-btn off" id="btnEnd" data-tip="End call" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7 2 2 0 011.72 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.42 19.42 0 013.43 9.19 19.79 19.79 0 01.36 10.56 2 2 0 012 8.18V5a2 2 0 011.72-2 12.84 12.84 0 002.81.7 2 2 0 012.11.45l1.27 1.27a16 16 0 012.6 3.41"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHAT SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>Chat</h3>
+      <button class="icon-btn" id="closeSidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="system-msg">Chat messages appear here once you're connected.</div>
+    </div>
+    <div class="chat-input-wrap">
+      <input type="file" id="chatPhotoInput" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+      <button class="photo-btn" id="photoBtn" aria-label="Send photo" data-tip="Send Photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 15l-5-5L5 19"/></svg>
+      </button>
+      <textarea class="chat-input" id="chatInput" rows="1" placeholder="Type a message..." maxlength="300"></textarea>
+      <button class="send-btn" id="sendBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     PREMIUM FILTER MODAL
+══════════════════════════════ -->
+<div class="overlay" id="filterModal">
+  <div class="modal-box">
+    <h3>Premium Filters</h3>
+    <p class="sub">Customize who you connect with. Premium filters consume tokens per connection.</p>
+    <div class="modal-scroll-body">
+    <div class="upgrade-banner">
+      <div class="ub-text"><strong>Unlock all filters</strong> — upgrade to Premium for unlimited access and 200 bonus tokens monthly.</div>
+      <button class="btn-upgrade-sm" onclick="closeModal('filterModal');openModal('tokenModal')">Upgrade</button>
+    </div>
+
+    <!-- GENDER -->
+    <div class="filter-section">
+      <div class="filter-label">
+        Gender <span class="premium-badge-sm">PREMIUM</span>
+        <span style="font-size:.7rem;color:var(--gold);margin-left:auto">-2 tokens/match</span>
+      </div>
+      <div class="filter-chips">
+        <span class="chip gold sel" data-filter="gender" data-val="any">Any</span>
+        <span class="chip gold" data-filter="gender" data-val="male">Male</span>
+        <span class="chip gold" data-filter="gender" data-val="female">Female</span>
+        <span class="chip gold" data-filter="gender" data-val="nonbinary">Non-binary</span>
+      </div>
+    </div>
+
+    <!-- AGE RANGE -->
+    <div class="filter-section">
+      <div class="filter-label">
+        Age Range <span class="premium-badge-sm">PREMIUM</span>
+        <span style="font-size:.7rem;color:var(--gold);margin-left:auto">-2 tokens/match</span>
+      </div>
+      <div class="filter-chips">
+        <span class="chip gold sel" data-filter="age" data-val="any">Any</span>
+        <span class="chip gold" data-filter="age" data-val="18-24">18–24</span>
+        <span class="chip gold" data-filter="age" data-val="25-34">25–34</span>
+        <span class="chip gold" data-filter="age" data-val="35-44">35–44</span>
+        <span class="chip gold" data-filter="age" data-val="45+">45+</span>
+      </div>
+    </div>
+
+    <!-- REGION -->
+    <div class="filter-section">
+      <div class="filter-label">
+        Region <span class="premium-badge-sm">PREMIUM</span>
+        <span style="font-size:.7rem;color:var(--gold);margin-left:auto">-3 tokens/match</span>
+      </div>
+      <div class="filter-chips">
+        <span class="chip gold sel" data-filter="region" data-val="any">Worldwide</span>
+        <span class="chip gold" data-filter="region" data-val="eu">Europe</span>
+        <span class="chip gold" data-filter="region" data-val="na">North America</span>
+        <span class="chip gold" data-filter="region" data-val="asia">Asia</span>
+        <span class="chip gold" data-filter="region" data-val="latam">Latin America</span>
+        <span class="chip gold" data-filter="region" data-val="africa">Africa</span>
+        <span class="chip gold" data-filter="region" data-val="me">Middle East</span>
+      </div>
+    </div>
+
+    <!-- LANGUAGE -->
+    <div class="filter-section">
+      <div class="filter-label">
+        Language <span class="premium-badge-sm">PREMIUM</span>
+        <span style="font-size:.7rem;color:var(--gold);margin-left:auto">-2 tokens/match</span>
+      </div>
+      <div class="filter-chips">
+        <span class="chip gold sel" data-filter="lang" data-val="any">Any</span>
+        <span class="chip gold" data-filter="lang" data-val="en">English</span>
+        <span class="chip gold" data-filter="lang" data-val="es">Spanish</span>
+        <span class="chip gold" data-filter="lang" data-val="fr">French</span>
+        <span class="chip gold" data-filter="lang" data-val="ar">Arabic</span>
+        <span class="chip gold" data-filter="lang" data-val="pt">Portuguese</span>
+        <span class="chip gold" data-filter="lang" data-val="de">German</span>
+        <span class="chip gold" data-filter="lang" data-val="ko">Korean</span>
+        <span class="chip gold" data-filter="lang" data-val="ja">Japanese</span>
+      </div>
+    </div>
+
+    <!-- INTERESTS -->
+    <div class="filter-section">
+      <div class="filter-label">Interests <span style="font-size:.7rem;color:var(--muted);margin-left:auto">Free</span></div>
+      <div class="filter-chips">
+        <span class="chip" data-filter="interest" data-val="music">Music</span>
+        <span class="chip" data-filter="interest" data-val="travel">Travel</span>
+        <span class="chip" data-filter="interest" data-val="gaming">Gaming</span>
+        <span class="chip" data-filter="interest" data-val="art">Art</span>
+        <span class="chip" data-filter="interest" data-val="tech">Tech</span>
+        <span class="chip" data-filter="interest" data-val="books">Books</span>
+        <span class="chip" data-filter="interest" data-val="food">Food</span>
+        <span class="chip" data-filter="interest" data-val="sports">Sports</span>
+        <span class="chip" data-filter="interest" data-val="movies">Movies</span>
+        <span class="chip" data-filter="interest" data-val="language">Language Exchange</span>
+      </div>
+    </div>
+
+    <!-- MATCH MODE -->
+    <div class="filter-section">
+      <div class="filter-label">
+        Match Mode <span class="premium-badge-sm">PREMIUM</span>
+        <span style="font-size:.7rem;color:var(--gold);margin-left:auto">-5 tokens/match</span>
+      </div>
+      <div class="filter-chips">
+        <span class="chip gold sel" data-filter="mode" data-val="any">All Strangers</span>
+        <span class="chip gold" data-filter="mode" data-val="verified">Verified Only</span>
+        <span class="chip gold" data-filter="mode" data-val="premium">Premium Members</span>
+        <span class="chip gold" data-filter="mode" data-val="new">New Members</span>
+      </div>
+    </div>
+
+    <!-- TOKEN COST PREVIEW -->
+    <div class="token-cost-row">
+      <div class="tcr-label">Token cost per match with current filters:</div>
+      <div class="tcr-amount">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v1.5M12 16.5V18M9 9l3 3 3-3M9 15l3-3 3 3"/></svg>
+        <span id="filterCostDisplay">Free</span>
+      </div>
+    </div>
+
+    </div><!-- /modal-scroll-body -->
+    <div class="filter-actions">
+      <button class="btn-cancel-sm" onclick="cancelFilters()">Cancel</button>
+      <button class="btn-apply-filters" onclick="applyFilters()">Apply Filters</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     GIFT MODAL
+══════════════════════════════ -->
+<div class="overlay" id="giftModal">
+  <div class="modal-box">
+    <h3>Send a Gift</h3>
+    <p class="sub">Gifts cost tokens and convert to real money for the recipient — they can cash out anytime.</p>
+    <div class="modal-scroll-body">
+    <div class="gift-grid" id="giftGrid">
+      <!-- Filled by JS -->
+    </div>
+
+    <div class="gift-info">
+      <strong>How gifts work:</strong> When you send a gift, tokens are deducted from your balance. The recipient earns real cash — 1 Token = $0.05 USD. They can request a PayPal or Stripe cashout once they reach $10.
+    </div>
+
+    </div><!-- /modal-scroll-body -->
+    <div class="gift-send-row">
+      <button class="btn-cancel-sm" onclick="closeModal('giftModal')">Cancel</button>
+      <button class="btn-send-gift" id="btnSendGift">
+        Send Gift
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     BUY TOKENS MODAL
+══════════════════════════════ -->
+<div class="overlay" id="tokenModal">
+  <div class="modal-box">
+    <h3>Buy Tokens</h3>
+    <p class="sub">Tokens power premium filters, gifts, and special features. 1 Token = $0.05 USD when received as a gift.</p>
+    <div class="modal-scroll-body">
+    <div class="token-packs" id="tokenPacks">
+      <!-- Filled by JS -->
+    </div>
+
+    </div><!-- /modal-scroll-body -->
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px;text-align:center;">💳 Secure card payment via Stripe</p>
+    <button class="btn-buy" id="btnBuyNow">Buy Now</button>
+    <div class="secure-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      Secured with 256-bit SSL encryption
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     NO TOKENS MODAL
+══════════════════════════════ -->
+<div class="overlay" id="noTokenModal">
+  <div class="modal-box" style="max-width:400px;text-align:center;">
+    <div class="nt-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h3>You're out of Tokens</h3>
+    <p class="sub">Your token balance is empty. Buy more tokens to use premium filters, or continue with free matching.</p>
+    <button class="btn-buy" style="margin-bottom:12px" onclick="closeModal('noTokenModal');openModal('tokenModal')">Buy Tokens</button>
+    <br>
+    <button class="btn-cancel-sm" style="width:100%" onclick="closeModal('noTokenModal');resetFilters();document.getElementById('btnNext').click()">Continue without filters (Free)</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     REPORT MODAL
+══════════════════════════════ -->
+<div class="overlay" id="reportModal">
+  <div class="modal-box">
+    <h3>Report this user</h3>
+    <p class="sub">Help us keep Spark safe. We review every report immediately.</p>
+    <div class="report-options">
+      <label class="report-opt"><input type="radio" name="rpt" value="inappropriate"> Inappropriate behavior</label>
+      <label class="report-opt"><input type="radio" name="rpt" value="harassment"> Harassment or bullying</label>
+      <label class="report-opt"><input type="radio" name="rpt" value="underage"> Appears to be underage</label>
+      <label class="report-opt"><input type="radio" name="rpt" value="nudity"> Nudity / explicit content</label>
+      <label class="report-opt"><input type="radio" name="rpt" value="spam"> Spam or advertising</label>
+    </div>
+    <div class="report-actions">
+      <button class="btn-cancel-sm" onclick="closeModal('reportModal')">Cancel</button>
+      <button class="btn-report-send" onclick="submitReport()">Report &amp; Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════ -->
+<script>
+/* ── GLOBALS ── */
+let appState = 'idle';
+let tokens = 0;
+let searchTimer, searchTimer2, callTimer;
+let callSeconds = 0;
+let micOn = true, camOn = true;
+let sidebarOpen = true;
+let selectedGift = null;
+let selectedPack = null;
+let selectedPM = 'card';
+let activeFilters = { gender:'any', age:'any', region:'any', lang:'any', mode:'any', interests:[] };
+let appliedFilters = { gender:'any', age:'any', region:'any', lang:'any', mode:'any', interests:[] };
+let filterCost = 0;
+let appliedFilterCost = 0;
+let isPremiumFilterActive = false;
+
+/* ── STRANGERS DATA ── */
+const strangers = [
+  { name:'Sofia, 22', loc:'Berlin, DE', initial:'S', color:'rgba(72,199,190,.3)', premium:false },
+  { name:'Carlos, 29', loc:'São Paulo, BR', initial:'C', color:'rgba(255,140,66,.3)', premium:false },
+  { name:'Priya, 25', loc:'Mumbai, IN', initial:'P', color:'rgba(199,125,255,.3)', premium:true },
+  { name:'Yusuf, 27', loc:'Istanbul, TR', initial:'Y', color:'rgba(100,160,255,.3)', premium:false },
+  { name:'Amara, 24', loc:'Lagos, NG', initial:'A', color:'rgba(255,100,180,.3)', premium:false },
+  { name:'Jin, 30', loc:'Seoul, KR', initial:'J', color:'rgba(255,78,106,.3)', premium:true },
+  { name:'Lena, 26', loc:'Vienna, AT', initial:'L', color:'rgba(255,200,60,.3)', premium:false },
+  { name:'Ravi, 28', loc:'Chennai, IN', initial:'R', color:'rgba(72,199,100,.3)', premium:false },
+];
+
+const greetings = ['Hey! How are you?','Hi! Where are you from?','Hello! This is fun!','Hey! What brings you here?','Hi! Nice to meet you.'];
+const replies   = ['Haha, interesting!','Really? Tell me more.','I agree!','That\'s so cool.','Same here!','Where exactly?','No way!'];
+
+/* ─────────────────────────────
+   GIFTS DATA
+───────────────────────────── */
+const gifts = [
+  { id:'rose',    icon:'🌹', name:'Rose',      tokens:5,   usd:'$0.25' },
+  { id:'heart',   icon:'💝', name:'Heart',     tokens:10,  usd:'$0.50' },
+  { id:'fire',    icon:'🔥', name:'Fire',      tokens:20,  usd:'$1.00' },
+  { id:'diamond', icon:'💎', name:'Diamond',   tokens:50,  usd:'$2.50' },
+  { id:'crown',   icon:'👑', name:'Crown',     tokens:100, usd:'$5.00' },
+  { id:'rocket',  icon:'🚀', name:'Rocket',    tokens:150, usd:'$7.50' },
+  { id:'star',    icon:'⭐', name:'Star',      tokens:30,  usd:'$1.50' },
+  { id:'trophy',  icon:'🏆', name:'Trophy',    tokens:200, usd:'$10.00'},
+];
+
+/* TOKEN PACKS */
+const packs = [
+  { tokens:50,  price:'$3.99', per:'$0.08/token',  bonus:'',              popular:false },
+  { tokens:150, price:'$9.99', per:'$0.07/token',  bonus:'+20 free',      popular:true  },
+  { tokens:300, price:'$17.99',per:'$0.06/token',  bonus:'+50 free',      popular:false },
+  { tokens:600, price:'$29.99',per:'$0.05/token',  bonus:'+100 free',     popular:false },
+  { tokens:1200,price:'$49.99',per:'$0.04/token',  bonus:'+300 free',     popular:false },
+  { tokens:2500,price:'$89.99',per:'$0.036/token', bonus:'+700 free',     popular:false },
+];
+
+/* ─────────────────────────────
+   INIT
+───────────────────────────── */
+(function init() {
+  buildGiftGrid();
+  buildTokenPacks();
+  updateTokenUI();
+})();
+
+function buildGiftGrid() {
+  const grid = document.getElementById('giftGrid');
+  grid.innerHTML = gifts.map((g,i) => `
+    <div class="gift-item" data-gift="${g.id}" onclick="selectGift('${g.id}')">
+      <div class="gift-icon">${g.icon}</div>
+      <div class="gift-name">${g.name}</div>
+      <div class="gift-cost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><circle cx="12" cy="12" r="10"/></svg>
+        ${g.tokens} · ${g.usd}
+      </div>
+    </div>
+  `).join('');
+  selectedGift = gifts[0].id;
+  document.querySelector('.gift-item').classList.add('selected');
+}
+
+function buildTokenPacks() {
+  const cont = document.getElementById('tokenPacks');
+  cont.innerHTML = packs.map((p,i) => `
+    <div class="token-pack${i===1?' selected':''}" data-pack="${i}" onclick="selectPack(${i})">
+      ${p.popular?'<div class="pack-popular">BEST VALUE</div>':''}
+      <div class="pack-tokens">${p.tokens}</div>
+      <div class="pack-label">Tokens</div>
+      <div class="pack-price">${p.price}</div>
+      <div class="pack-per">${p.per}</div>
+      ${p.bonus?`<div class="pack-bonus">${p.bonus}</div>`:''}
+    </div>
+  `).join('');
+  selectedPack = 1;
+}
+
+/* ─────────────────────────────
+   TOKEN UI
+───────────────────────────── */
+function updateTokenUI() {
+  document.getElementById('tokenCount').textContent = tokens;
+  const badge = document.getElementById('tokenBadge');
+  badge.classList.toggle('low', tokens <= 5);
+}
+
+function deductToken(amount) {
+  tokens = Math.max(0, tokens - amount);
+  updateTokenUI();
+  floatTokenDeduct(amount);
+}
+
+function floatTokenDeduct(n) {
+  const el = document.getElementById('tokenFloat');
+  el.textContent = `-${n} Token${n>1?'s':''}`;
+  el.classList.remove('animate');
+  void el.offsetWidth;
+  el.classList.add('animate');
+}
+
+function addTokens(n) {
+  // Disabled — tokens are only added server-side after Stripe confirms payment.
+  console.warn('addTokens() called locally — ignored. Use SparkAPI.buyTokens() instead.');
+}
+
+/* ─────────────────────────────
+   FILTER COST CALCULATION
+───────────────────────────── */
+function cloneFilters(filters) {
+  return {
+    gender: filters.gender || 'any',
+    age: filters.age || 'any',
+    region: filters.region || 'any',
+    lang: filters.lang || 'any',
+    mode: filters.mode || 'any',
+    interests: [...(filters.interests || [])],
+  };
+}
+
+function calculateFilterCost(filters) {
+  let cost = 0;
+  if (filters.gender  !== 'any') cost += 2;
+  if (filters.age     !== 'any') cost += 2;
+  if (filters.region  !== 'any') cost += 3;
+  if (filters.lang    !== 'any') cost += 2;
+  if (filters.mode    !== 'any') cost += 5;
+  return cost;
+}
+
+function recalcFilterCost() {
+  const cost = calculateFilterCost(activeFilters);
+  filterCost = cost;
+  isPremiumFilterActive = cost > 0;
+  document.getElementById('filterCostDisplay').textContent = cost ? `${cost} Token${cost>1?'s':''}` : 'Free';
+}
+
+function syncFilterChips() {
+  document.querySelectorAll('.chip[data-filter]').forEach(chip => {
+    const filter = chip.dataset.filter;
+    const val = chip.dataset.val;
+    if (filter === 'interest') {
+      chip.classList.toggle('sel', activeFilters.interests.includes(val));
+    } else {
+      chip.classList.toggle('sel', activeFilters[filter] === val);
+    }
+  });
+  recalcFilterCost();
+}
+
+/* ─────────────────────────────
+   MODAL HELPERS
+───────────────────────────── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ─────────────────────────────
+   FILTER CHIPS
+───────────────────────────── */
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    if (chip.classList.contains('locked')) return;
+    const filter = chip.dataset.filter;
+    const val    = chip.dataset.val;
+    if (filter === 'interest') {
+      chip.classList.toggle('sel');
+      const idx = activeFilters.interests.indexOf(val);
+      if (idx === -1) activeFilters.interests.push(val);
+      else activeFilters.interests.splice(idx,1);
+    } else {
+      document.querySelectorAll(`.chip[data-filter="${filter}"]`).forEach(c => c.classList.remove('sel'));
+      chip.classList.add('sel');
+      activeFilters[filter] = val;
+    }
+    recalcFilterCost();
+  });
+});
+
+function applyFilters() {
+  closeModal('filterModal');
+  recalcFilterCost();
+  const cost = filterCost;
+  if (isPremiumFilterActive && tokens < cost) {
+    openModal('noTokenModal');
+    return;
+  }
+  appliedFilters = cloneFilters(activeFilters);
+  appliedFilterCost = cost;
+  showToast(cost ? `Filters applied — ${cost} token${cost>1?'s':''} per match` : 'Filters reset — matching is free');
+}
+
+function canUseActiveFilters() {
+  appliedFilterCost = calculateFilterCost(appliedFilters);
+  if (appliedFilterCost > 0 && tokens < appliedFilterCost) {
+    openModal('noTokenModal');
+    return false;
+  }
+  return true;
+}
+
+function cancelFilters() {
+  activeFilters = cloneFilters(appliedFilters);
+  syncFilterChips();
+  closeModal('filterModal');
+}
+
+function resetFilters() {
+  activeFilters = { gender:'any', age:'any', region:'any', lang:'any', mode:'any', interests:[] };
+  appliedFilters = cloneFilters(activeFilters);
+  filterCost = 0;
+  appliedFilterCost = 0;
+  isPremiumFilterActive = false;
+  syncFilterChips();
+}
+
+/* ─────────────────────────────
+   STATE MACHINE
+───────────────────────────── */
+function setState(s) {
+  appState = s;
+  document.body.className = 'state-' + s;
+  updateUIForState();
+}
+
+function updateUIForState() {
+  const statusText = document.getElementById('statusText');
+  const pill = document.getElementById('statusPill');
+  const nextLabel = document.getElementById('nextLabel');
+  const btnEnd = document.getElementById('btnEnd');
+  const timerEl = document.getElementById('timer');
+  const remVid = document.getElementById('remoteVideo');
+  const placeholder = document.getElementById('videoPlaceholder');
+
+  if (appState === 'idle') {
+    statusText.textContent = 'Ready to connect';
+    setPillColor('teal');
+    nextLabel.textContent = 'Start';
+    btnEnd.style.display = 'none';
+    timerEl.style.display = 'none';
+    placeholder.style.display = 'flex';
+    remVid.style.display = 'none';
+    document.querySelector('.vp-idle-content').style.display = 'flex';
+    document.querySelector('.vp-searching-content').style.display = 'none';
+    stopTimer();
+  }
+  if (appState === 'searching') {
+    statusText.textContent = 'Searching...';
+    setPillColor('orange');
+    nextLabel.textContent = 'Cancel';
+    btnEnd.style.display = 'none';
+    timerEl.style.display = 'none';
+    placeholder.style.display = 'flex';
+    remVid.style.display = 'none';
+    document.querySelector('.vp-idle-content').style.display = 'none';
+    document.querySelector('.vp-searching-content').style.display = 'flex';
+  }
+  if (appState === 'connected') {
+    statusText.textContent = 'Connected';
+    setPillColor('red');
+    nextLabel.textContent = 'Next';
+    btnEnd.style.display = 'flex';
+    timerEl.style.display = 'block';
+    placeholder.style.display = 'none';
+    remVid.style.display = 'block';
+    startTimer();
+  }
+}
+
+function setPillColor(c) {
+  const pill = document.getElementById('statusPill');
+  const dot  = pill.querySelector('.status-dot');
+  const colors = {
+    teal:   ['rgba(72,199,190,.1)','rgba(72,199,190,.25)','var(--teal)','var(--teal)'],
+    orange: ['rgba(255,140,66,.1)','rgba(255,140,66,.3)','var(--accent2)','var(--accent2)'],
+    red:    ['rgba(255,78,106,.1)','rgba(255,78,106,.3)','var(--accent1)','var(--accent1)'],
+  };
+  const [bg,border,col,dotCol] = colors[c];
+  pill.style.background = bg; pill.style.borderColor = border; pill.style.color = col;
+  dot.style.background = dotCol;
+}
+
+/* ─────────────────────────────
+   CAMERA
+───────────────────────────── */
+async function startCamera() {
+  // Replaced by getCameraStream() in the socket block below — this is a no-op stub
+}
+
+/* ─────────────────────────────
+   SEARCH & CONNECT
+───────────────────────────── */
+// Placeholder vars — overwritten by the Socket.IO block at bottom of page
+var startSearch    = function() { console.warn('socket block not ready yet'); };
+var skipOrNext     = function() { console.warn('socket block not ready yet'); };
+var connectStranger= function() {};
+function cancelSearch() { clearTimeout(searchTimer); clearInterval(searchTimer2); setState('idle'); }
+
+// btnNext, startBtn, btnEnd are wired in the Socket.IO block below
+// (kept empty here to avoid duplicate/conflicting handlers)
+
+/* ─────────────────────────────
+   TIMER
+───────────────────────────── */
+function startTimer() {
+  stopTimer(); callSeconds = 0;
+  callTimer = setInterval(() => {
+    callSeconds++;
+    const m = String(Math.floor(callSeconds/60)).padStart(2,'0');
+    const s = String(callSeconds%60).padStart(2,'0');
+    document.getElementById('timer').textContent = m+':'+s;
+  },1000);
+}
+function stopTimer() { clearInterval(callTimer); document.getElementById('timer').textContent='00:00'; }
+
+
+/* ─────────────────────────────
+   MIC / CAM
+───────────────────────────── */
+// btnMic and btnCam handled via onclick in the socket block below
+
+/* ─────────────────────────────
+   REACTIONS
+───────────────────────────── */
+const reactions = ['Wave', 'Laugh', 'Love', 'Wow', 'Thumbs Up', 'Fire', 'Clap'];
+let rIdx = 0;
+// btnReact handled via onclick in socket block
+
+/* ─────────────────────────────
+   REPORT
+───────────────────────────── */
+// btnReport handled via onclick in socket block
+function submitReport() {
+  closeModal('reportModal');
+  showToast('Report submitted. Moving to next...');
+  setTimeout(() => { if (typeof skipOrNext === 'function') skipOrNext(); }, 1000);
+}
+
+/* ─────────────────────────────
+   GIFTS
+───────────────────────────── */
+function selectGift(id) {
+  selectedGift = id;
+  document.querySelectorAll('.gift-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.gift === id);
+  });
+}
+
+document.getElementById('btnSendGift').addEventListener('click', () => {
+  if (appState !== 'connected') { showToast('Connect to someone first!'); return; }
+  const gift = gifts.find(g => g.id === selectedGift);
+  if (!gift) return;
+  if (tokens < gift.tokens) {
+    closeModal('giftModal');
+    showToast('Not enough tokens! Buy more.');
+    setTimeout(() => openModal('tokenModal'), 800);
+    return;
+  }
+  deductToken(gift.tokens);
+  closeModal('giftModal');
+  const name = document.getElementById('sbName').textContent;
+  addMessage(`Sent a gift: ${gift.icon} ${gift.name} (worth ${gift.usd})`, 'gift');
+  showToast(`Gift sent! ${name} received ${gift.usd}`);
+  setTimeout(() => addMessage(`Oh wow, thank you for the ${gift.name}! That's so sweet!`, 'them'), 1200);
+});
+
+/* ─────────────────────────────
+   TOKEN PURCHASE
+───────────────────────────── */
+function selectPack(i) {
+  selectedPack = i;
+  document.querySelectorAll('.token-pack').forEach((el,idx) => el.classList.toggle('selected', idx===i));
+}
+
+document.querySelectorAll('.pm-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    selectedPM = this.dataset.pm;
+    document.querySelectorAll('.pm-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+/* btnBuyNow handled by spark-api.js below */
+
+/* ─────────────────────────────
+   CHAT
+───────────────────────────── */
+function addMessage(text, who) {
+  const now = new Date();
+  const time = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  if (who === 'gift') {
+    div.className = 'msg gift-msg';
+    div.textContent = text;
+  } else {
+    div.className = 'msg ' + who;
+    div.textContent = text;
+  }
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = time;
+  div.appendChild(meta);
+  document.getElementById('chatMessages').appendChild(div);
+  document.getElementById('chatMessages').scrollTop = 9999;
+}
+function addImageMessage(url, who) {
+  const now = new Date();
+  const time = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  div.className = 'msg image-msg ' + who;
+  const img = document.createElement('img');
+  img.className = 'chat-photo';
+  img.src = url;
+  img.alt = 'Shared photo';
+  img.onclick = () => window.open(url, '_blank', 'noopener');
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = time;
+  div.appendChild(img);
+  div.appendChild(meta);
+  document.getElementById('chatMessages').appendChild(div);
+  document.getElementById('chatMessages').scrollTop = 9999;
+}
+function addSystemMsg(text) {
+  const div = document.createElement('div'); div.className='system-msg'; div.textContent=text;
+  document.getElementById('chatMessages').appendChild(div);
+  document.getElementById('chatMessages').scrollTop=9999;
+}
+function clearMessages() {
+  document.getElementById('chatMessages').innerHTML='<div class="system-msg">Chat messages appear here once you\'re connected.</div>';
+}
+
+// sendBtn and chatInput handled via onclick in socket block
+function sendMessage() {
+  if (appState !== 'connected') return;
+  const inp = document.getElementById('chatInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  addMessage(txt,'me'); inp.value=''; inp.style.height='40px';
+  if (Math.random()>.35) setTimeout(()=>addMessage(replies[Math.floor(Math.random()*replies.length)],'them'),900+Math.random()*2000);
+}
+document.getElementById('chatInput').addEventListener('input', function() {
+  this.style.height='40px'; this.style.height=Math.min(this.scrollHeight,90)+'px';
+});
+
+/* ─────────────────────────────
+   SIDEBAR
+───────────────────────────── */
+function _isMobile() { return window.innerWidth <= 768; }
+
+function openSidebar() {
+  sidebarOpen = true;
+  var sb  = document.getElementById('sidebar');
+  var bd  = document.getElementById('sidebarBackdrop');
+  if (_isMobile()) {
+    sb.classList.remove('collapsed');
+    sb.classList.add('open');
+    bd.classList.add('open');
+    document.body.style.overflow = 'hidden'; // prevent background scroll
+  } else {
+    sb.classList.remove('collapsed');
+  }
+}
+
+function closeSidebar() {
+  sidebarOpen = false;
+  var sb  = document.getElementById('sidebar');
+  var bd  = document.getElementById('sidebarBackdrop');
+  if (_isMobile()) {
+    sb.classList.remove('open');
+    bd.classList.remove('open');
+    document.body.style.overflow = '';
+  } else {
+    sb.classList.add('collapsed');
+  }
+}
+
+document.getElementById('toggleSidebar').addEventListener('click', () => {
+  if (sidebarOpen) { closeSidebar(); } else { openSidebar(); }
+});
+document.getElementById('closeSidebar').addEventListener('click', () => { closeSidebar(); });
+document.getElementById('sidebarBackdrop').addEventListener('click', () => { closeSidebar(); });
+
+/* ─────────────────────────────
+   INTERESTS QUICK PANEL
+───────────────────────────── */
+document.getElementById('toggleInterests').addEventListener('click', e => {
+  e.stopPropagation(); document.getElementById('interestsPanel').classList.toggle('open');
+});
+document.querySelectorAll('.ip-tag').forEach(tag => tag.addEventListener('click',()=>tag.classList.toggle('selected')));
+function closePanel() { document.getElementById('interestsPanel').classList.remove('open'); }
+document.addEventListener('click', e => {
+  const ip=document.getElementById('interestsPanel');
+  if (!ip.contains(e.target) && e.target.id!=='toggleInterests') ip.classList.remove('open');
+});
+
+/* ─────────────────────────────
+   CLOSE MODALS ON OVERLAY CLICK
+───────────────────────────── */
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target===ov) ov.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') document.querySelectorAll('.overlay.open').forEach(ov=>ov.classList.remove('open'));
+});
+
+/* ─────────────────────────────
+   TOAST
+───────────────────────────── */
+function showToast(msg) {
+  const t=document.getElementById('reactionToast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+/* ─────────────────────────────
+   DRAGGABLE PiP
+───────────────────────────── */
+(function(){
+  const el=document.getElementById('localWrap');
+  let dragging=false, ox, oy;
+  el.addEventListener('mousedown', e=>{dragging=true;ox=e.clientX-el.offsetLeft;oy=e.clientY-el.offsetTop;el.style.cursor='grabbing';});
+  document.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    let x=e.clientX-ox, y=e.clientY-oy;
+    x=Math.max(0,Math.min(x,window.innerWidth-el.offsetWidth));
+    y=Math.max(58,Math.min(y,window.innerHeight-el.offsetHeight));
+    el.style.left=x+'px'; el.style.top=y+'px'; el.style.bottom='auto'; el.style.right='auto';
+  });
+  document.addEventListener('mouseup',()=>{dragging=false;el.style.cursor='move';});
+})();
+</script>
+<!-- ═══ SOCKET.IO + WEBRTC — COMPLETE REWRITE ═══ -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  if (typeof io === 'undefined') {
+    document.write('<scr'+'ipt src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/sc'+'ript>');
+  }
+</script>
+<script src="/spark-api.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ─── Auth guard ─────────────────────────────────────────────────────────── */
+if (!SparkAPI.isLoggedIn()) { window.location.href = '/login.html'; return; }
+
+/* ─── State ──────────────────────────────────────────────────────────────── */
+var _socket            = null;
+var _pc                = null;
+var _sessionId         = null;
+var _isInitiator       = false;
+var _myUserId          = null;
+var _socketReady       = false;
+var _pendingCandidates = [];
+var _remoteDescSet     = false;
+var _iceRestartTimer   = null;
+var _reconnectTimer    = null;
+var _iceConfigLoaded   = false;
+var _relayFallbackTried = false;
+var _sawRelayCandidate  = false;
+var _iceRestarting      = false;
+
+/* ─── ICE / TURN config ──────────────────────────────────────────────────────
+   Free public TURN (openrelay) works for cross-network calls.
+   Replace with your own Twilio/Xirsys TURN for production.
+─────────────────────────────────────────────────────────────────────────── */
+var ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302'     },
+    { urls: 'stun:stun1.l.google.com:19302'    },
+    { urls: 'stun:stun2.l.google.com:19302'    }
+  ],
+  iceTransportPolicy:  'all',
+  bundlePolicy:        'max-bundle',
+  rtcpMuxPolicy:       'require',
+  iceCandidatePoolSize: 10
+};
+
+async function _loadIceConfig() {
+  if (_iceConfigLoaded) return;
+  try {
+    var data = await SparkAPI.turnCredentials();
+    if (data && data.iceServers && data.iceServers.length) {
+      ICE_CONFIG.iceServers = data.iceServers;
+      console.log('[WebRTC] ICE config loaded from server:', data.iceServers.length);
+    }
+  } catch (e) {
+    console.warn('[WebRTC] using bundled ICE config:', e.message);
+  }
+  _iceConfigLoaded = true;
+}
+
+function _peerConfig() {
+  var cfg = Object.assign({}, ICE_CONFIG);
+  cfg.iceServers = ICE_CONFIG.iceServers.slice();
+  cfg.iceTransportPolicy = _relayFallbackTried ? 'relay' : 'all';
+  cfg.iceCandidatePoolSize = 0;
+  return cfg;
+}
+
+/* ─── Load user ──────────────────────────────────────────────────────────── */
+SparkAPI.me().then(function (d) {
+  _myUserId = d.user.id;
+  tokens    = d.user.tokens;
+  updateTokenUI();
+}).catch(function () {});
+
+/* ─── Camera permission indicator ───────────────────────────────────────── */
+(function () {
+  if (!navigator.permissions) return;
+  navigator.permissions.query({ name: 'camera' }).then(function (r) {
+    var el = document.getElementById('camStatus');
+    if (!el) return;
+    if      (r.state === 'granted') { _setCamStatus('✅','Camera ready');                         el.style.display='block'; }
+    else if (r.state === 'denied')  { _setCamStatus('🚫','Camera blocked — enable in settings'); el.style.display='block'; }
+    r.onchange = function () { location.reload(); };
+  }).catch(function () {});
+})();
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CAMERA / MICROPHONE
+═══════════════════════════════════════════════════════════════════════════ */
+function _setCamStatus(icon, text) {
+  var el = document.getElementById('camStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  document.getElementById('camStatusIcon').textContent = icon;
+  document.getElementById('camStatusText').textContent = text;
+}
+
+function _attachLocalVideo(stream) {
+  var lv = document.getElementById('localVideo');
+  if (!lv) return;
+  lv.srcObject = stream;
+  lv.muted = true; lv.playsInline = true; lv.autoplay = true;
+  lv.play().catch(function () {});
+  var w = document.getElementById('localWrap');
+  if (w) w.style.display = 'block';
+}
+
+async function getCameraStream() {
+  var secure = location.protocol === 'https:' ||
+               location.hostname === 'localhost' ||
+               location.hostname === '127.0.0.1';
+  if (!secure) {
+    _setCamStatus('🔒','Open this page with HTTPS, localhost, or 127.0.0.1 for camera access');
+    showToast('Open via HTTPS for camera/mic access');
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast('Camera not supported in this browser'); return;
+  }
+
+  var VIDEO = { width:{ideal:1280}, height:{ideal:720},
+                aspectRatio:{ideal:16/9}, frameRate:{ideal:24,max:30},
+                facingMode:'user', resizeMode:'none' };
+
+  /* try video+audio */
+  try {
+    var s = await navigator.mediaDevices.getUserMedia({ video:VIDEO, audio:true });
+    window._localStream = s;
+    console.log('[Media] ✅ video+audio');
+    _setCamStatus('✅','Camera & mic ready');
+    _attachLocalVideo(s);
+    return;
+  } catch (e1) { console.warn('[Media] video+audio failed:', e1.name); }
+
+  /* try video only */
+  try {
+    var sv = await navigator.mediaDevices.getUserMedia({ video:VIDEO, audio:false });
+    window._localStream = sv;
+    _setCamStatus('📷','Camera only — no mic');
+    showToast('Mic unavailable — video only');
+    _attachLocalVideo(sv);
+    return;
+  } catch (e2) { console.warn('[Media] video-only failed:', e2.name); }
+
+  /* try audio only */
+  try {
+    var sa = await navigator.mediaDevices.getUserMedia({ video:false, audio:true });
+    window._localStream = sa;
+    _setCamStatus('🎤','Mic only — no camera');
+    showToast('Camera unavailable — audio only');
+    return;
+  } catch (e3) {
+    console.error('[Media] all failed:', e3.name);
+    var msg = (e3.name==='NotAllowedError'||e3.name==='PermissionDeniedError')
+            ? '❌ Blocked — allow camera in settings then reload'
+            : (e3.name==='NotFoundError') ? '❌ No camera or mic detected'
+            : '⚠️ Media unavailable — text chat only';
+    _setCamStatus('❌', msg.replace(/^[❌⚠️] /, ''));
+    showToast(msg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOCKET.IO — stable connection with full reconnect handling
+═══════════════════════════════════════════════════════════════════════════ */
+function connectSocket() {
+  if (_socket && _socket.connected) return _socket;
+
+  console.log('[Socket] creating connection…');
+
+  _socket = io({
+    transports:           ['polling', 'websocket'], /* polling first — more reliable */
+    reconnection:         true,
+    reconnectionDelay:    1500,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,               /* keep trying forever */
+    timeout:              20000
+  });
+
+  /* ── connect ── */
+  _socket.on('connect', function () {
+    console.log('[Socket] ✅ connected sid:', _socket.id);
+    _socketReady = false;                         /* reset — must re-auth */
+    /* Send auth immediately on every connect (and reconnect) */
+    var t = SparkAPI.getToken() || '';
+    _socket.emit('authenticate', { token: t });
+    console.log('[Socket] authenticate sent, token present:', !!t);
+  });
+
+  /* ── auth response ── */
+  _socket.on('connected', function (d) {
+    if (d.authenticated) {
+      _socketReady = true;
+      tokens       = d.tokens;
+      updateTokenUI();
+      console.log('[Socket] ✅ auth OK uid:', d.user_id);
+    } else {
+      console.error('[Socket] ❌ auth failed:', d.message);
+      showToast('Login expired — please log out and log in again.');
+    }
+  });
+
+  /* ── connect_error — suppress spammy toast, log only ── */
+  _socket.on('connect_error', function (err) {
+    console.warn('[Socket] connect_error:', err.message);
+    /* Don't showToast here — Socket.IO retries automatically */
+  });
+
+  /* ── disconnect ── */
+  _socket.on('disconnect', function (reason) {
+    console.warn('[Socket] disconnected:', reason);
+    _socketReady = false;
+    /* 'io server disconnect' = server kicked us — manual reconnect */
+    if (reason === 'io server disconnect') _socket.connect();
+  });
+
+  /* ── MATCH FOUND ── */
+  _socket.on('match_found', function (d) {
+    _sessionId   = d.session_id;
+    _isInitiator = d.is_initiator;
+    _relayFallbackTried = false;
+    _sawRelayCandidate  = false;
+    _iceRestarting      = false;
+    clearInterval(searchTimer2);
+
+    document.getElementById('sbAvatar').innerHTML = d.partner.avatar_url ? `<img src="${d.partner.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : (d.partner.name||'S')[0].toUpperCase();
+    document.getElementById('sbName').textContent   = d.partner.name    || 'Stranger';
+    document.getElementById('sbLoc').textContent    = d.partner.location || '🌍 Somewhere';
+    document.getElementById('strangerBadge').classList.add('visible');
+
+    document.getElementById('foundSub').textContent =
+      'Connected with ' + (d.partner.name || 'a stranger') + '!';
+    var fo = document.getElementById('foundOverlay');
+    fo.classList.add('show');
+    setTimeout(function () { fo.classList.remove('show'); }, 2000);
+
+    tokens = d.tokens;
+    updateTokenUI();
+    setState('connected');
+    addSystemMsg('Connected! Say hello 👋');
+    callSeconds = 0;
+
+    /* Give UI 150ms to render then start WebRTC */
+    setTimeout(function () { _startRTC(); }, 150);
+  });
+
+  /* ── WebRTC signalling ── */
+
+  _socket.on('webrtc_offer', async function (d) {
+    console.log('[WebRTC] ← offer');
+    await _loadIceConfig();
+    if (d && d.force_relay) {
+      _relayFallbackTried = true;
+      console.warn('[WebRTC] partner requested TURN relay fallback');
+      _createPC();
+    } else if (!_pc) {
+      _createPC();
+    }
+    try {
+      if (_pc.signalingState !== 'stable') {
+        await _pc.setLocalDescription({ type:'rollback' }).catch(function () {});
+      }
+      await _pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+      _remoteDescSet = true;
+      await _flushCandidates();
+      var ans = await _pc.createAnswer();
+      await _pc.setLocalDescription(ans);
+      _socket.emit('webrtc_answer', { sdp: _pc.localDescription });
+      console.log('[WebRTC] → answer sent');
+    } catch (e) { console.error('[WebRTC] offer err:', e.name, e.message); }
+  });
+
+  _socket.on('webrtc_answer', async function (d) {
+    console.log('[WebRTC] ← answer');
+    if (!_pc) { console.warn('[WebRTC] answer arrived but no PC'); return; }
+    try {
+      if (_pc.signalingState !== 'have-local-offer') {
+        console.warn('[WebRTC] wrong signalingState for answer:', _pc.signalingState);
+        return;
+      }
+      await _pc.setRemoteDescription(new RTCSessionDescription(d.sdp));
+      _remoteDescSet = true;
+      await _flushCandidates();
+    } catch (e) { console.error('[WebRTC] answer err:', e.name, e.message); }
+  });
+
+  _socket.on('webrtc_ice_candidate', async function (d) {
+    if (!d || !d.candidate) return;
+    if (_pc && _remoteDescSet) {
+      try { await _pc.addIceCandidate(new RTCIceCandidate(d.candidate)); }
+      catch (e) { console.warn('[WebRTC] addICE err:', e.message); }
+    } else {
+      _pendingCandidates.push(d.candidate);
+    }
+  });
+
+  /* ── Chat / social ── */
+  _socket.on('new_message', function (d) {
+    if (d.sender_id !== _myUserId) {
+      if (d.type === 'image') addImageMessage(d.content, 'them');
+      else addMessage(d.content, 'them');
+    }
+  });
+  _socket.on('reaction_received', function (d) {
+    if (d.sender_id !== _myUserId) showToast('Reaction: ' + d.reaction);
+  });
+  _socket.on('gift_received', function (d) {
+    if (d.sender_id !== _myUserId) {
+      addMessage('🎁 Gift: ' + d.gift_type + ' ($' + (d.usd_value||0).toFixed(2) + ')', 'gift');
+      showToast('You received a gift!');
+    }
+  });
+  _socket.on('tokens_updated', function (d) { tokens = d.tokens; updateTokenUI(); });
+
+  _socket.on('partner_disconnected', function (d) {
+    showToast(d.message || 'Stranger disconnected.');
+    _closePC();
+    var rv = document.getElementById('remoteVideo');
+    if (rv) { rv.srcObject = null; rv.style.display = 'none'; }
+    document.getElementById('strangerBadge').classList.remove('visible');
+    stopTimer(); clearMessages();
+    setState('idle');
+  });
+
+  _socket.on('error', function (d) {
+    console.error('[Socket] server error:', d.message);
+    if ((d.message || '').toLowerCase().includes('not enough tokens')) {
+      setState('idle');
+      openModal('noTokenModal');
+      return;
+    }
+    showToast(d.message || 'An error occurred.');
+  });
+
+  return _socket;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WebRTC PEER CONNECTION
+═══════════════════════════════════════════════════════════════════════════ */
+function _createPC() {
+  if (_pc) _closePC();
+  _pendingCandidates = [];
+  _remoteDescSet     = false;
+  _sawRelayCandidate  = false;
+
+  _pc = new RTCPeerConnection(_peerConfig());
+  console.log('[WebRTC] PC created, policy:', _relayFallbackTried ? 'relay' : 'all',
+              'ICE servers:', ICE_CONFIG.iceServers.length);
+
+  /* Add local tracks — MUST be before createOffer */
+  if (window._localStream) {
+    window._localStream.getTracks().forEach(function (t) {
+      _pc.addTrack(t, window._localStream);
+      console.log('[WebRTC] track added:', t.kind, t.label.substring(0,30));
+    });
+  } else {
+    console.warn('[WebRTC] no local stream — remote won\'t see us');
+  }
+
+  /* Remote track — the key to seeing each other */
+  _pc.ontrack = function (evt) {
+    console.log('[WebRTC] ✅ ontrack:', evt.track.kind,
+                'streams:', evt.streams.length,
+                'state:', evt.track.readyState);
+
+    if (!evt.streams || !evt.streams[0]) {
+      console.warn('[WebRTC] ontrack: no stream attached');
+      return;
+    }
+
+    var rv = document.getElementById('remoteVideo');
+    if (!rv) return;
+
+    /* Only update if it's a new stream to prevent AbortError */
+    if (rv.srcObject !== evt.streams[0]) {
+      rv.srcObject = evt.streams[0];
+    }
+    rv.playsInline   = true;
+    rv.muted         = true;   /* start muted → avoids autoplay block */
+    rv.autoplay      = true;
+    rv.style.display = 'block';
+
+    /* Force video-area to show it (in case CSS state hasn't caught up) */
+    var va = document.getElementById('videoArea');
+    if (va) va.style.background = 'transparent';
+
+    /* Debounce play to avoid AbortError on multiple rapid tracks */
+    clearTimeout(window._playTimer);
+    window._playTimer = setTimeout(function () {
+      rv.play().then(function () {
+        rv.muted = false;   /* unmute after successful play */
+        console.log('[WebRTC] ▶ remote video playing, muted:', rv.muted);
+      }).catch(function (err) {
+        if (err.name === 'AbortError') return; /* Ignore aborts from rapid track additions */
+        console.warn('[WebRTC] play() blocked:', err.name);
+        showToast('👆 Tap anywhere to start video');
+        var unlock = function () {
+          rv.muted = false;
+          rv.play().catch(function () {});
+          document.removeEventListener('click',      unlock);
+          document.removeEventListener('touchstart', unlock);
+        };
+        document.addEventListener('click',      unlock, { once:true });
+        document.addEventListener('touchstart', unlock, { once:true, passive:true });
+      });
+    }, 300);
+  };
+
+  /* ICE candidate — send to partner */
+  _pc.onicecandidate = function (evt) {
+    if (evt.candidate) {
+      if (evt.candidate.type === 'relay' || / typ relay /.test(evt.candidate.candidate || '')) {
+        _sawRelayCandidate = true;
+      }
+      _socket.emit('webrtc_ice_candidate', { candidate: evt.candidate });
+      console.log('[WebRTC] → ICE:', evt.candidate.type, evt.candidate.protocol);
+    } else {
+      console.log('[WebRTC] ICE gathering complete');
+      if (!_sawRelayCandidate) {
+        console.warn('[WebRTC] no TURN relay candidate gathered. Cross-network media may fail.');
+      }
+    }
+  };
+
+  /* ICE gathering state */
+  _pc.onicegatheringstatechange = function () {
+    console.log('[WebRTC] gathering:', _pc.iceGatheringState);
+  };
+
+  /* Connection state */
+  _pc.onconnectionstatechange = function () {
+    var s = _pc.connectionState;
+    console.log('[WebRTC] connectionState:', s);
+    clearTimeout(_iceRestartTimer);
+    if (s === 'connected') {
+      showToast('✓ Connected!');
+    } else if (s === 'disconnected') {
+      /* Wait 4s then try restart — only initiator does this */
+      if (_isInitiator) {
+        _iceRestartTimer = setTimeout(function () {
+          if (_pc && _pc.connectionState === 'disconnected') _restartICE();
+        }, 4000);
+      }
+    } else if (s === 'failed') {
+      /* Both sides detect failed, but only initiator restarts */
+      if (_isInitiator) {
+        _handleIceFailure();
+      } else {
+        showToast('Connection issue — waiting for reconnect…');
+      }
+    }
+  };
+
+  /* ICE connection state */
+  _pc.oniceconnectionstatechange = function () {
+    var s = _pc.iceConnectionState;
+    console.log('[WebRTC] iceConnection:', s);
+    if (s === 'failed' && _isInitiator) {
+      clearTimeout(_iceRestartTimer);
+      _handleIceFailure();
+    }
+  };
+
+  _pc.onsignalingstatechange = function () {
+    console.log('[WebRTC] signaling:', _pc.signalingState);
+  };
+}
+
+async function _flushCandidates() {
+  if (!_pendingCandidates.length) return;
+  console.log('[WebRTC] flushing', _pendingCandidates.length, 'queued candidates');
+  for (var i = 0; i < _pendingCandidates.length; i++) {
+    try { await _pc.addIceCandidate(new RTCIceCandidate(_pendingCandidates[i])); }
+    catch (e) { console.warn('[WebRTC] flush ICE err:', e.message); }
+  }
+  _pendingCandidates = [];
+}
+
+async function _startRTC() {
+  console.log('[WebRTC] _startRTC, initiator:', _isInitiator);
+  await _loadIceConfig();
+  if (!_pc) _createPC();
+  if (!_isInitiator) { console.log('[WebRTC] waiting for offer…'); return; }
+  try {
+    var offer = await _pc.createOffer({ offerToReceiveAudio:true, offerToReceiveVideo:true });
+    await _pc.setLocalDescription(offer);
+    _socket.emit('webrtc_offer', { sdp: _pc.localDescription });
+    console.log('[WebRTC] → offer sent');
+  } catch (e) { console.error('[WebRTC] createOffer failed:', e.name, e.message); }
+}
+
+async function _restartICE() {
+  if (!_pc || !_isInitiator || _iceRestarting) return;
+  console.log('[WebRTC] ICE restart…');
+  try {
+    if (_pc.signalingState !== 'stable') return;
+    _iceRestarting = true;
+    var offer = await _pc.createOffer({ iceRestart:true });
+    await _pc.setLocalDescription(offer);
+    _socket.emit('webrtc_offer', { sdp: _pc.localDescription });
+  } catch (e) {
+    console.error('[WebRTC] ICE restart failed:', e);
+    showToast('Press Next to find a new partner');
+  } finally {
+    _iceRestarting = false;
+  }
+}
+
+async function _restartWithRelay() {
+  if (!_isInitiator || _iceRestarting) return;
+  _relayFallbackTried = true;
+  _iceRestarting = true;
+  showToast('Switching to TURN relay…');
+  try {
+    _createPC();
+    var offer = await _pc.createOffer({ offerToReceiveAudio:true, offerToReceiveVideo:true, iceRestart:true });
+    await _pc.setLocalDescription(offer);
+    _socket.emit('webrtc_offer', { sdp: _pc.localDescription, force_relay:true });
+    console.warn('[WebRTC] → relay-only offer sent');
+  } catch (e) {
+    console.error('[WebRTC] relay fallback failed:', e.name, e.message);
+    showToast('TURN relay failed. Add working TURN credentials in .env');
+  } finally {
+    _iceRestarting = false;
+  }
+}
+
+function _handleIceFailure() {
+  if (!_relayFallbackTried && _sawRelayCandidate) {
+    _restartWithRelay();
+    return;
+  }
+  showToast('Reconnecting…');
+  _restartICE();
+}
+
+function _closePC() {
+  clearTimeout(_iceRestartTimer);
+  if (_pc) {
+    _pc.ontrack = _pc.onicecandidate = _pc.onconnectionstatechange =
+    _pc.oniceconnectionstatechange = _pc.onsignalingstatechange =
+    _pc.onicegatheringstatechange  = null;
+    _pc.close();
+    _pc = null;
+    console.log('[WebRTC] PC closed');
+  }
+  _pendingCandidates = [];
+  _remoteDescSet     = false;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIND MATCH
+═══════════════════════════════════════════════════════════════════════════ */
+function _emitFindMatch() {
+  console.log('[Spark] → find_match, socketReady:', _socketReady);
+  _socket.emit('find_match', { type:'video', filters:appliedFilters });
+  var subs = ['Searching…','Looking across 190+ countries…','Almost there…','Finding your match…'];
+  var si = 0;
+  clearInterval(searchTimer2);
+  searchTimer2 = setInterval(function () {
+    var el = document.getElementById('searchSub');
+    if (el) el.textContent = subs[si++ % subs.length];
+  }, 1200);
+}
+
+function doFindMatch() {
+  /* Step 1: ensure socket connected */
+  if (!_socket || !_socket.connected) {
+    var sock = connectSocket();
+    sock.once('connect', function () { doFindMatch(); });
+    return;
+  }
+  setState('searching');
+  /* Step 2: ensure authenticated */
+  if (_socketReady) { _emitFindMatch(); return; }
+  /* Wait for auth — with 4s timeout fallback */
+  var done  = false;
+  var timer = setTimeout(function () {
+    if (!done) { done = true; console.warn('[Spark] auth timeout'); _emitFindMatch(); }
+  }, 4000);
+  _socket.once('connected', function (d) {
+    if (done) return; done = true; clearTimeout(timer);
+    if (d.authenticated) { _socketReady = true; _emitFindMatch(); }
+    else { showToast('Login expired — please log in again.'); setState('idle'); }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTON HANDLERS
+═══════════════════════════════════════════════════════════════════════════ */
+async function _handleStart() {
+  if (!canUseActiveFilters()) return;
+  await getCameraStream();
+  var sock = connectSocket();
+  if (sock.connected) { doFindMatch(); }
+  else { sock.once('connect', function () { doFindMatch(); }); }
+}
+
+document.getElementById('startBtn').onclick = function () { _handleStart(); };
+
+document.getElementById('btnNext').onclick = async function () {
+  if (appState === 'idle') {
+    _handleStart();
+  } else if (appState === 'searching') {
+    clearInterval(searchTimer2);
+    if (_socket) _socket.emit('cancel_search');
+    cancelSearch();
+  } else if (appState === 'connected') {
+    if (!canUseActiveFilters()) return;
+    _closePC();
+    var rv = document.getElementById('remoteVideo');
+    if (rv) { rv.srcObject = null; rv.style.display = 'none'; }
+    document.getElementById('strangerBadge').classList.remove('visible');
+    if (_socket) _socket.emit('skip');
+    stopTimer(); clearMessages();
+    doFindMatch();
+  }
+};
+
+document.getElementById('btnEnd').onclick = function () {
+  _closePC();
+  var rv = document.getElementById('remoteVideo');
+  if (rv) { rv.srcObject = null; rv.style.display = 'none'; }
+  document.getElementById('strangerBadge').classList.remove('visible');
+  if (_socket) _socket.emit('leave_room');
+  stopTimer(); clearMessages();
+  setState('idle');
+};
+
+document.getElementById('btnMic').onclick = function () {
+  micOn = !micOn;
+  this.classList.toggle('off', !micOn);
+  this.innerHTML = micOn
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/><path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23M12 19v4M8 23h8"/></svg>';
+  if (window._localStream)
+    window._localStream.getAudioTracks().forEach(function (t) { t.enabled = micOn; });
+};
+
+document.getElementById('btnCam').onclick = function () {
+  camOn = !camOn;
+  this.classList.toggle('off', !camOn);
+  this.innerHTML = camOn
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 01-2-2V8a2 2 0 012-2h3m3-3h6l2 3h4a2 2 0 012 2v9.34m-7.72-2.06A3 3 0 1110.12 10M21 3L3 21"/></svg>';
+  var lv = document.getElementById('localVideo');
+  if (lv) lv.style.filter = camOn ? '' : 'brightness(0)';
+  if (window._localStream)
+    window._localStream.getVideoTracks().forEach(function (t) { t.enabled = camOn; });
+};
+
+document.getElementById('btnReact').onclick = function () {
+  if (appState !== 'connected') return;
+  var r = reactions[rIdx++ % reactions.length];
+  showToast('You sent: ' + r);
+  if (_socket) _socket.emit('send_reaction', { reaction: r });
+};
+
+document.getElementById('btnReport').onclick = function () {
+  if (appState !== 'connected') return;
+  openModal('reportModal');
+};
+
+window.submitReport = async function () {
+  var sel = document.querySelector('input[name="rpt"]:checked');
+  closeModal('reportModal');
+  if (sel) { try { await SparkAPI.submitReport(sel.value, _sessionId); } catch (e) {} }
+  showToast('Report submitted. Finding next…');
+  setTimeout(function () { document.getElementById('btnNext').onclick(); }, 900);
+};
+
+document.getElementById('btnSendGift').onclick = function () {
+  if (appState !== 'connected') { showToast('Connect to someone first!'); return; }
+  var gift = gifts.find(function (g) { return g.id === selectedGift; });
+  if (!gift) return;
+  if (tokens < gift.tokens) { closeModal('giftModal'); setTimeout(function () { openModal('tokenModal'); }, 300); return; }
+  if (_socket) _socket.emit('send_gift', { gift_type: gift.id, session_id: _sessionId });
+  addMessage('Sent a gift: ' + gift.icon + ' ' + gift.name, 'gift');
+  closeModal('giftModal');
+  showToast('Gift sent!');
+};
+
+async function uploadVideoChatPhoto(file) {
+  if (!_sessionId) throw new Error('Connect to someone first.');
+  if (!file) throw new Error('Choose a photo first.');
+  if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) throw new Error('Only JPG, PNG, GIF, or WebP images are allowed.');
+  if (file.size > 5 * 1024 * 1024) throw new Error('Photo must be 5MB or smaller.');
+
+  var form = new FormData();
+  form.append('photo', file);
+  var res = await fetch('/api/chat/session/' + _sessionId + '/photo', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + SparkAPI.getToken() },
+    body: form
+  });
+  var data = await res.json().catch(function () { return {}; });
+  if (!res.ok) throw new Error(data.error || 'Photo upload failed.');
+  return data.url;
+}
+
+document.getElementById('photoBtn').onclick = function () {
+  if (appState !== 'connected') { showToast('Connect to someone first!'); return; }
+  document.getElementById('chatPhotoInput').click();
+};
+
+document.getElementById('chatPhotoInput').onchange = async function () {
+  var file = this.files && this.files[0];
+  this.value = '';
+  if (!file) return;
+  try {
+    showToast('Uploading photo...');
+    var url = await uploadVideoChatPhoto(file);
+    addImageMessage(url, 'me');
+    if (_socket) _socket.emit('send_message', { content:url, type:'image', session_id:_sessionId });
+    showToast('Photo sent.');
+  } catch (e) {
+    showToast(e.message || 'Could not send photo.');
+  }
+};
+
+sendMessage = function () {
+  if (appState !== 'connected') return;
+  var inp = document.getElementById('chatInput');
+  var txt = (inp.value || '').trim(); if (!txt) return;
+  addMessage(txt, 'me');
+  inp.value = ''; inp.style.height = '44px';
+  if (_socket) _socket.emit('send_message', { content:txt, type:'text', session_id:_sessionId });
+};
+document.getElementById('sendBtn').onclick    = function () { sendMessage(); };
+document.getElementById('chatInput').onkeydown = function (e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+};
+
+document.getElementById('btnBuyNow').onclick = async function () {
+  var ids = ['pack_50','pack_150','pack_300','pack_600','pack_1200','pack_2500'];
+  await SparkAPI.buyTokens(ids[selectedPack]);
+};
+
+/* ─── Nav links ── */
+(function () {
+  var nav = document.querySelector('.topbar-right');
+  if (!nav) return;
+  [{ href:'/friends.html', label:'Friends', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>' },
+   { href:'/chat.html',    label:'Messages', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>'},
+   { href:'/profile.html', label:'Profile', icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' }].forEach(function (l) {
+    if (document.querySelector('a[href="'+l.href+'"]')) return;
+    var a = document.createElement('a');
+    a.href = l.href; 
+    a.className = 'icon-btn'; 
+    a.setAttribute('data-tip', l.label);
+    a.innerHTML = l.icon;
+    nav.insertBefore(a, nav.lastChild);
+  });
+})();
+
+})(); /* end IIFE */
+</script>
+
+</body>
+</html>

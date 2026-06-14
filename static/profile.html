@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — My Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0a10;--surface:#13121c;--card:#1a1827;--panel:#12121f;
+  --accent1:#ff4e6a;--accent2:#ff8c42;--accent3:#c77dff;
+  --gold:#f5c842;--teal:#48c7be;
+  --text:#f0ecff;--muted:#7b78a0;
+  --border:rgba(255,255,255,0.08);
+  --glow1:rgba(255,78,106,0.35);--gold-glow:rgba(245,200,66,0.3);
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");background-size:200px;pointer-events:none;z-index:1000;opacity:.4}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:16px 40px;background:rgba(11,10,16,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);gap:16px}
+.nav-logo{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:900;background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:.85rem;transition:background .2s,color .2s}
+.nav-link:hover,.nav-link.active{background:rgba(255,255,255,.06);color:var(--text)}
+.nav-link svg{width:15px;height:15px}
+.nav-link .badge{background:var(--accent1);color:#fff;font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:50px;margin-left:2px}
+.token-pill{display:flex;align-items:center;gap:6px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);color:var(--gold);font-size:.8rem;font-weight:600;padding:6px 14px;border-radius:50px;cursor:pointer;text-decoration:none;transition:background .2s}
+.token-pill:hover{background:rgba(245,200,66,.18)}
+.token-pill svg{width:14px;height:14px}
+
+/* LAYOUT */
+.page{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+
+/* PROFILE HEADER */
+.profile-header{display:flex;align-items:flex-start;gap:28px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:36px;margin-bottom:28px;position:relative;overflow:hidden}
+.profile-header::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(255,78,106,.12),transparent 70%);pointer-events:none}
+.avatar-lg{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,78,106,.3),rgba(199,125,255,.3));display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;color:rgba(255,255,255,.85);flex-shrink:0;border:2px solid rgba(255,255,255,.1)}
+.profile-info{flex:1}
+.profile-name{font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:700;margin-bottom:4px}
+.profile-email{color:var(--muted);font-size:.9rem;margin-bottom:12px}
+.profile-tags{display:flex;gap:8px;flex-wrap:wrap}
+.ptag{padding:4px 12px;border-radius:50px;font-size:.75rem;border:1px solid var(--border);color:var(--muted)}
+.ptag.premium{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.3);color:var(--gold)}
+.ptag.member{background:rgba(72,199,190,.08);border-color:rgba(72,199,190,.2);color:var(--teal)}
+.ptag.country{background:rgba(199,125,255,.08);border-color:rgba(199,125,255,.22);color:#d7b3ff}
+.edit-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:9px 18px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.85rem;cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
+.edit-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.edit-btn svg{width:14px;height:14px}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px 20px;text-align:center}
+.stat-val{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--text),var(--muted));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-lbl{font-size:.75rem;color:var(--muted);margin-top:6px;letter-spacing:.3px}
+
+/* TOKEN CARD */
+.token-card{background:linear-gradient(135deg,rgba(245,200,66,.08),rgba(255,140,66,.05));border:1px solid rgba(245,200,66,.2);border-radius:20px;padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.token-info h3{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--gold);margin-bottom:4px}
+.token-info p{color:var(--muted);font-size:.88rem}
+.token-balance-big{font-family:'Playfair Display',serif;font-size:3rem;font-weight:900;color:var(--gold);line-height:1}
+.btn-buy-tokens{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--gold),var(--accent2));color:#000;border:none;border-radius:12px;padding:12px 24px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;box-shadow:0 4px 20px var(--gold-glow);transition:transform .2s,box-shadow .2s}
+.btn-buy-tokens:hover{transform:translateY(-2px);box-shadow:0 8px 28px var(--gold-glow)}
+.btn-buy-tokens svg{width:16px;height:16px}
+
+/* SECTION */
+.section{margin-bottom:28px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700}
+.section-link{font-size:.82rem;color:var(--accent1);text-decoration:none;transition:opacity .2s}
+.section-link:hover{opacity:.7}
+
+/* EDIT FORM */
+.edit-form{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin-bottom:28px;display:none}
+.edit-form.open{display:block}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-row.full{grid-template-columns:1fr}
+.field label{display:block;font-size:.75rem;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px}
+.field input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.field input:focus{border-color:var(--accent1);box-shadow:0 0 0 3px rgba(255,78,106,.12)}
+.field input::placeholder{color:#4a4870}
+.form-actions{display:flex;gap:10px;margin-top:8px}
+.btn-save{flex:1;background:linear-gradient(135deg,var(--accent1),var(--accent2));color:#fff;border:none;border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:500;cursor:pointer;box-shadow:0 4px 18px var(--glow1);transition:opacity .2s}
+.btn-save:hover{opacity:.88}
+.btn-cancel{flex:1;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:12px;padding:12px;font-family:'DM Sans',sans-serif;font-size:.92rem;cursor:pointer;transition:background .2s}
+.btn-cancel:hover{background:rgba(255,255,255,.1)}
+
+/* HISTORY TABLE */
+.history-list{display:flex;flex-direction:column;gap:10px}
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hi-left{display:flex;align-items:center;gap:12px}
+.hi-icon{width:40px;height:40px;border-radius:12px;background:rgba(245,200,66,.1);display:flex;align-items:center;justify-content:center}
+.hi-icon svg{width:18px;height:18px;color:var(--gold)}
+.hi-label{font-size:.9rem;font-weight:500}
+.hi-date{font-size:.75rem;color:var(--muted);margin-top:2px}
+.hi-right{text-align:right}
+.hi-tokens{font-size:1rem;font-weight:700;color:var(--gold)}
+.hi-amount{font-size:.75rem;color:var(--muted)}
+.badge-status{font-size:.68rem;font-weight:600;padding:3px 10px;border-radius:50px;letter-spacing:.3px}
+.badge-status.completed{background:rgba(72,199,190,.1);color:var(--teal);border:1px solid rgba(72,199,190,.25)}
+.badge-status.pending{background:rgba(255,140,66,.1);color:var(--accent2);border:1px solid rgba(255,140,66,.25)}
+.badge-status.failed{background:rgba(255,78,106,.1);color:var(--accent1);border:1px solid rgba(255,78,106,.25)}
+.badge-status.refunded{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(8,7,16,.92);border:1px solid var(--border);border-radius:50px;padding:10px 24px;font-size:.88rem;color:var(--text);opacity:0;pointer-events:none;transition:opacity .3s;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px;color:var(--muted);font-size:.9rem}
+.empty svg{width:40px;height:40px;margin-bottom:12px;opacity:.3;display:block;margin-left:auto;margin-right:auto}
+
+/* PASSWORD SECTION */
+.pw-section{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin-bottom:28px}
+.pw-section h3{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;margin-bottom:18px}
+
+/* DANGER ZONE */
+.danger-section{background:rgba(255,78,106,.04);border:1px solid rgba(255,78,106,.15);border-radius:20px;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.danger-text h4{font-size:.95rem;font-weight:500;margin-bottom:4px}
+.danger-text p{font-size:.82rem;color:var(--muted)}
+.btn-danger{background:rgba(255,78,106,.12);border:1px solid rgba(255,78,106,.3);color:var(--accent1);padding:9px 18px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.85rem;cursor:pointer;transition:background .2s}
+.btn-danger:hover{background:rgba(255,78,106,.22)}
+
+@media(max-width:700px){
+  nav{padding:14px 16px}
+  .nav-links .nav-link span{display:none}
+  .page{padding:24px 16px 60px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .form-row{grid-template-columns:1fr}
+  .profile-header{flex-direction:column;align-items:center;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/strangerdate.html" class="nav-logo">Spark</a>
+  <div class="nav-links">
+    <a href="/videochat.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      <span>Chat</span>
+    </a>
+    <a href="/friends.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <span>Friends</span>
+      <span class="badge" id="pendingBadge" style="display:none">0</span>
+    </a>
+    <a href="/chat.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span>Messages</span>
+      <span class="badge" id="unreadBadge" style="display:none">0</span>
+    </a>
+    <a href="/profile.html" class="nav-link active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Profile</span>
+    </a>
+  </div>
+  <a href="/videochat.html" class="token-pill" id="tokenPill">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="rgba(245,200,66,.2)" stroke="#f5c842" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="#f5c842"/></svg>
+    <span id="tokenCount">—</span>
+  </a>
+</nav>
+
+<div class="page">
+
+  <!-- PROFILE HEADER -->
+  <div class="profile-header" id="profileHeader">
+    <div class="avatar-lg" id="avatarEl" style="cursor:pointer;position:relative;overflow:hidden" onclick="document.getElementById('avatarInput').click()" data-tip="Change Photo">
+      ?
+    </div>
+    <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+    <div class="profile-info">
+      <div class="profile-name" id="profileName">Loading…</div>
+      <div class="profile-email" id="profileEmail"></div>
+      <div class="profile-tags">
+        <span class="ptag country">Country: <span id="profileCountry">—</span></span>
+        <span class="ptag member">Member since <span id="memberSince">—</span></span>
+        <span class="ptag premium" id="premiumTag" style="display:none">⭐ Premium</span>
+      </div>
+    </div>
+    <button class="edit-btn" id="editToggleBtn" onclick="toggleEdit()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit Profile
+    </button>
+  </div>
+
+  <!-- EDIT FORM -->
+  <div class="edit-form" id="editForm">
+    <div class="form-row">
+      <div class="field"><label>First Name</label><input type="text" id="editFirst" placeholder="First name"></div>
+      <div class="field"><label>Last Name</label><input type="text" id="editLast" placeholder="Last name"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="toggleEdit()">Cancel</button>
+      <button class="btn-save" onclick="saveProfile()">Save Changes</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-val" id="statSessions">—</div><div class="stat-lbl">Connections Made</div></div>
+    <div class="stat-card"><div class="stat-val" id="statMinutes">—</div><div class="stat-lbl">Minutes Chatted</div></div>
+    <div class="stat-card"><div class="stat-val" id="statGifts">—</div><div class="stat-lbl">Gifts Sent</div></div>
+    <div class="stat-card"><div class="stat-val" id="statTokensSpent">—</div><div class="stat-lbl">Tokens on Gifts</div></div>
+  </div>
+
+  <!-- TOKEN BALANCE -->
+  <div class="token-card">
+    <div class="token-info">
+      <h3>Token Balance</h3>
+      <p>Use tokens for premium filters, gifts &amp; more</p>
+    </div>
+    <div class="token-balance-big" id="tokenBalanceBig">—</div>
+    <button class="btn-buy-tokens" onclick="openBuyModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Buy Tokens
+    </button>
+  </div>
+
+  <!-- PURCHASE HISTORY -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Purchase History</div>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        No purchases yet
+      </div>
+    </div>
+  </div>
+
+  <!-- CHANGE PASSWORD -->
+  <div class="pw-section">
+    <h3>Change Password</h3>
+    <div class="form-row full" style="margin-bottom:12px">
+      <div class="field"><label>Current Password</label><input type="password" id="pwCurrent" placeholder="••••••••"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>New Password</label><input type="password" id="pwNew" placeholder="Min. 8 characters"></div>
+      <div class="field"><label>Confirm New Password</label><input type="password" id="pwConfirm" placeholder="Repeat new password"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="changePassword()">Update Password</button>
+    </div>
+  </div>
+
+  <!-- DANGER -->
+  <div class="danger-section">
+    <div class="danger-text">
+      <h4>Sign Out</h4>
+      <p>You'll be redirected to the login page.</p>
+    </div>
+    <button class="btn-danger" onclick="logout()">Sign Out</button>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="/spark-api.js"></script>
+<script>
+if (!SparkAPI.isLoggedIn()) window.location.href = '/login.html';
+
+let _user = null;
+
+// ── Load everything on page load ──────────────────────────────────────────────
+async function loadPage() {
+  try {
+    const [meRes, statsRes, histRes, pendingRes, unreadRes] = await Promise.all([
+      SparkAPI.me(),
+      fetch('/api/users/me/stats', { headers: { 'Authorization': 'Bearer ' + SparkAPI.getToken() } }).then(r => r.json()),
+      SparkAPI.purchaseHistory(),
+      fetch('/api/friends/pending', { headers: { 'Authorization': 'Bearer ' + SparkAPI.getToken() } }).then(r => r.json()),
+      fetch('/api/friends/dm/unread', { headers: { 'Authorization': 'Bearer ' + SparkAPI.getToken() } }).then(r => r.json()),
+    ]);
+
+    _user = meRes.user;
+    renderProfile(_user);
+    renderStats(statsRes);
+    renderHistory(histRes.purchases || []);
+
+    // Badges
+    if (pendingRes.pending?.length) {
+      const b = document.getElementById('pendingBadge');
+      b.style.display = 'inline'; b.textContent = pendingRes.pending.length;
+    }
+    if (unreadRes.unread > 0) {
+      const b = document.getElementById('unreadBadge');
+      b.style.display = 'inline'; b.textContent = unreadRes.unread;
+    }
+  } catch (e) {
+    showToast('Failed to load profile.');
+    // If the database was reset and the user no longer exists, force logout
+    if (e.status === 404 || e.status === 401) {
+      setTimeout(logout, 1500);
+    }
+  }
+}
+
+function renderProfile(u) {
+  const initials = ((u.first_name || '?').charAt(0) + (u.last_name || '').charAt(0)).toUpperCase();
+  const avHtml = u.avatar_url 
+    ? `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` 
+    : initials;
+    
+  document.getElementById('avatarEl').innerHTML = avHtml + `
+    <div style="position:absolute;bottom:0;right:0;background:var(--card);border-radius:50%;padding:6px;border:1px solid var(--border);color:var(--text);display:flex;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+    </div>`;
+  document.getElementById('profileName').textContent = u.first_name + ' ' + (u.last_name || '');
+  document.getElementById('profileEmail').textContent = u.email || '';
+  document.getElementById('profileCountry').textContent = u.country || 'Not detected';
+  document.getElementById('memberSince').textContent  = new Date(u.created_at).getFullYear();
+  document.getElementById('tokenCount').textContent   = u.tokens;
+  document.getElementById('tokenBalanceBig').textContent = u.tokens;
+  if (u.is_premium) document.getElementById('premiumTag').style.display = 'inline';
+  document.getElementById('editFirst').value = u.first_name;
+  document.getElementById('editLast').value  = u.last_name || '';
+}
+
+function renderStats(s) {
+  document.getElementById('statSessions').textContent    = s.total_sessions ?? '0';
+  document.getElementById('statMinutes').textContent     = s.total_minutes_chatted ?? '0';
+  document.getElementById('statGifts').textContent       = s.gifts_sent ?? '0';
+  document.getElementById('statTokensSpent').textContent = s.tokens_spent_on_gifts ?? '0';
+}
+
+function renderHistory(purchases) {
+  const el = document.getElementById('historyList');
+  if (!purchases.length) return;
+  el.innerHTML = purchases.map(p => `
+    <div class="history-item">
+      <div class="hi-left">
+        <div class="hi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></div>
+        <div>
+          <div class="hi-label">+${p.total_tokens} Tokens</div>
+          <div class="hi-date">${new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div>
+        </div>
+      </div>
+      <div class="hi-right">
+        <div class="hi-tokens">${p.amount_cents > 0 ? '$' + (p.amount_cents/100).toFixed(2) : 'Free'}</div>
+        <div class="hi-amount"><span class="badge-status ${p.status}">${p.status}</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function uploadAvatar(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) { showToast('Image must be less than 5MB'); return; }
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+    try {
+      const res = await SparkAPI.updateProfile({ avatar_base64: base64 });
+      _user = res.user;
+      renderProfile(_user);
+      showToast('Profile photo updated!');
+    } catch (err) {
+      showToast('Failed to update photo.');
+    } finally {
+      input.value = ''; // Reset input to allow uploading the same file again
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Edit profile ──────────────────────────────────────────────────────────────
+function toggleEdit() {
+  const f = document.getElementById('editForm');
+  f.classList.toggle('open');
+  document.getElementById('editToggleBtn').textContent = f.classList.contains('open') ? '✕ Cancel' : '✏ Edit Profile';
+}
+
+async function saveProfile() {
+  const first = document.getElementById('editFirst').value.trim();
+  const last  = document.getElementById('editLast').value.trim();
+  if (!first) { showToast('First name is required.'); return; }
+  try {
+    const res = await SparkAPI.updateProfile({ first_name: first, last_name: last });
+    _user = res.user;
+    renderProfile(_user);
+    document.getElementById('editForm').classList.remove('open');
+    showToast('Profile updated!');
+  } catch (e) {
+    showToast(e.message || 'Update failed.');
+  }
+}
+
+// ── Change password ───────────────────────────────────────────────────────────
+async function changePassword() {
+  const cur  = document.getElementById('pwCurrent').value;
+  const nw   = document.getElementById('pwNew').value;
+  const conf = document.getElementById('pwConfirm').value;
+  if (!cur || !nw) { showToast('Please fill in all password fields.'); return; }
+  if (nw !== conf) { showToast('New passwords do not match.'); return; }
+  if (nw.length < 8) { showToast('Password must be at least 8 characters.'); return; }
+  try {
+    await SparkAPI.changePassword(cur, nw);
+    showToast('Password changed successfully!');
+    document.getElementById('pwCurrent').value = '';
+    document.getElementById('pwNew').value = '';
+    document.getElementById('pwConfirm').value = '';
+  } catch (e) {
+    showToast(e.message || 'Password change failed.');
+  }
+}
+
+// ── Buy tokens modal redirect ─────────────────────────────────────────────────
+function openBuyModal() {
+  window.location.href = '/videochat.html#buy';
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+function logout() {
+  SparkAPI.logout();
+  window.location.href = '/login.html';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadPage();
+</script>
+</body>
+</html>

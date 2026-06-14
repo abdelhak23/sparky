@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0b0a10; --surface: #13121c; --card: #1a1827;
+    --accent1: #ff4e6a; --accent2: #ff8c42; --accent3: #c77dff;
+    --text: #f0ecff; --muted: #7b78a0;
+    --border: rgba(255,255,255,0.08);
+    --glow1: rgba(255,78,106,0.4); --glow2: rgba(199,125,255,0.25);
+    --input-bg: rgba(255,255,255,0.05);
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-weight: 300; overflow-x: hidden;
+  }
+
+  /* NOISE */
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px; pointer-events: none; z-index: 100; opacity: .5;
+  }
+
+  /* ─── LEFT PANEL ─── */
+  .left-panel {
+    position: relative; display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: center;
+    padding: 72px 64px; overflow: hidden;
+    background: linear-gradient(135deg, #0f0d1a 0%, #1a0d1f 50%, #0d1020 100%);
+  }
+  .left-panel::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 60%, rgba(255,78,106,.18) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(199,125,255,.15) 0%, transparent 55%);
+    pointer-events: none;
+  }
+  .blob-l {
+    position: absolute; border-radius: 50%; filter: blur(80px);
+    animation: driftL 9s ease-in-out infinite alternate; pointer-events: none; z-index: 0;
+  }
+  .blob-l1 { width: 380px; height: 380px; background: rgba(255,78,106,.25); top: -80px; left: -80px; }
+  .blob-l2 { width: 300px; height: 300px; background: rgba(199,125,255,.2); bottom: -60px; right: -40px; animation-delay: -4s; }
+  @keyframes driftL { from{transform:translate(0,0)} to{transform:translate(20px,15px)} }
+
+  .left-content { position: relative; z-index: 2; }
+  .back-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--muted); text-decoration: none; font-size: .85rem;
+    margin-bottom: 56px; transition: color .2s;
+  }
+  .back-link:hover { color: var(--text); }
+  .back-link svg { width: 16px; height: 16px; }
+
+  .brand-logo {
+    font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+  .brand-tagline {
+    font-family: 'Playfair Display', serif; font-size: clamp(1.8rem, 3vw, 2.6rem);
+    font-weight: 700; line-height: 1.2; letter-spacing: -.5px;
+    margin-bottom: 24px; color: var(--text);
+  }
+  .brand-tagline em { font-style: italic; color: var(--accent3); }
+  .brand-desc { color: var(--muted); font-size: 1rem; line-height: 1.75; max-width: 380px; margin-bottom: 48px; }
+
+  .social-proof { display: flex; flex-direction: column; gap: 16px; }
+  .proof-item { display: flex; align-items: center; gap: 14px; }
+  .proof-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .proof-icon svg { width: 20px; height: 20px; }
+  .proof-text { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+  .proof-text strong { color: var(--text); font-weight: 500; display: block; }
+
+  /* Avatar stack */
+  .avatar-stack { display: flex; margin-bottom: 40px; }
+  .avatar-stack .av {
+    width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700;
+    color: rgba(255,255,255,.85); margin-left: -12px;
+  }
+  .avatar-stack .av:first-child { margin-left: 0; }
+  .stack-label { margin-left: 16px; display: flex; flex-direction: column; justify-content: center; font-size: .85rem; }
+  .stack-label strong { color: var(--text); font-weight: 500; }
+  .stack-label span { color: var(--muted); font-size: .78rem; }
+
+  /* ─── RIGHT PANEL ─── */
+  .right-panel {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 60px 56px; background: var(--bg); position: relative; z-index: 1;
+  }
+
+  .auth-box { width: 100%; max-width: 420px; }
+
+  /* Tabs */
+  .auth-tabs { display: flex; gap: 4px; background: rgba(255,255,255,.04); padding: 4px; border-radius: 14px; margin-bottom: 32px; }
+  .auth-tab {
+    flex: 1; padding: 10px; border: none; background: transparent; color: var(--muted);
+    font-family: 'DM Sans', sans-serif; font-size: .88rem; font-weight: 500;
+    border-radius: 11px; cursor: pointer; transition: background .2s, color .2s;
+  }
+  .auth-tab.active { background: var(--accent1); color: #fff; box-shadow: 0 4px 18px rgba(255,78,106,.4); }
+
+  /* Panel heading */
+  .panel-heading { margin-bottom: 28px; }
+  .panel-heading h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; letter-spacing: -.5px; margin-bottom: 6px; }
+  .panel-heading p { color: var(--muted); font-size: .9rem; }
+
+  /* Social auth */
+  .social-auth { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .s-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04);
+    color: var(--text); border-radius: 12px; padding: 13px 20px;
+    font-family: 'DM Sans', sans-serif; font-size: .92rem; font-weight: 400; cursor: pointer;
+    transition: background .2s, border-color .2s, transform .15s;
+    width: 100%;
+  }
+  .s-btn:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.22); transform: translateY(-1px); }
+  .s-btn svg { flex-shrink: 0; }
+
+  .divider { display: flex; align-items: center; gap: 12px; margin: 0 0 24px; color: var(--muted); font-size: .78rem; letter-spacing: .5px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* Form fields */
+  .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+  .form-row.two-col { grid-template-columns: 1fr 1fr; }
+  .field { display: flex; flex-direction: column; gap: 7px; }
+  .field label { font-size: .75rem; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
+  .field input,
+  .field select {
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 13px 16px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: .95rem; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field select { appearance: none; cursor: pointer; }
+  .field select option { background: #151321; color: var(--text); }
+  .field input:focus,
+  .field select:focus { border-color: var(--accent1); box-shadow: 0 0 0 3px rgba(255,78,106,.14); }
+  .field input::placeholder { color: #4a4870; }
+
+  /* Password wrapper */
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 44px; width: 100%; }
+  .pw-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; transition: color .2s; }
+  .pw-toggle:hover { color: var(--text); }
+  .pw-toggle svg { width: 18px; height: 18px; }
+
+  /* Forgot row */
+  .field-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .field-meta label { font-size: .75rem; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
+  .forgot-btn { background: none; border: none; color: var(--muted); font-size: .8rem; cursor: pointer; transition: color .2s; font-family: 'DM Sans', sans-serif; padding: 0; }
+  .forgot-btn:hover { color: var(--accent1); }
+
+  /* Password strength */
+  .pw-strength { display: flex; gap: 4px; margin-top: 8px; }
+  .pw-bar { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: background .3s; }
+  .pw-bar.weak { background: var(--accent1); }
+  .pw-bar.medium { background: var(--accent2); }
+  .pw-bar.strong { background: #48c7be; }
+
+  /* Checkbox */
+  .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0; }
+  .check-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent1); margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+  .check-row label { font-size: .82rem; color: var(--muted); line-height: 1.5; cursor: pointer; }
+  .check-row label a { color: var(--accent1); text-decoration: none; }
+  .check-row label a:hover { text-decoration: underline; }
+
+  /* Submit */
+  .btn-submit {
+    width: 100%; background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    color: #fff; border: none; border-radius: 12px; padding: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 500; cursor: pointer;
+    box-shadow: 0 6px 28px var(--glow1); transition: transform .2s, box-shadow .2s;
+    margin-top: 8px;
+  }
+  .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 40px var(--glow1); }
+
+  .switch-note { text-align: center; font-size: .83rem; color: var(--muted); margin-top: 20px; }
+  .switch-note button { background: none; border: none; color: var(--accent1); font-family: 'DM Sans', sans-serif; font-size: .83rem; cursor: pointer; transition: opacity .2s; }
+  .switch-note button:hover { opacity: .8; text-decoration: underline; }
+
+  /* ── PANELS ── */
+  .view { display: none; animation: fadeIn .3s ease; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Forgot password illustration */
+  .forgot-icon { width: 64px; height: 64px; border-radius: 20px; background: rgba(255,78,106,.12); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .forgot-icon svg { width: 32px; height: 32px; }
+
+  /* Success state */
+  .success-box { text-align: center; padding: 32px 0; }
+  .success-circle { width: 72px; height: 72px; border-radius: 50%; background: rgba(72,199,190,.12); border: 2px solid rgba(72,199,190,.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .success-circle svg { width: 32px; height: 32px; }
+  .success-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+  .success-desc { color: var(--muted); font-size: .9rem; line-height: 1.65; margin-bottom: 28px; }
+
+  /* Auth tabs hidden in forgot/success */
+  .auth-tabs.hidden { opacity: 0; pointer-events: none; }
+
+  /* Footer note */
+  .auth-footer { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 32px; line-height: 1.7; }
+  .auth-footer a { color: var(--muted); text-decoration: underline; }
+  .notice-overlay { position:fixed; inset:0; z-index:9999; background:rgba(7,6,14,.76); backdrop-filter:blur(10px); display:none; align-items:center; justify-content:center; padding:20px; }
+  .notice-overlay.open { display:flex; }
+  .notice-box { width:100%; max-width:390px; background:var(--card); border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:26px; box-shadow:0 24px 80px rgba(0,0,0,.65); animation:noticeIn .22s ease; }
+  @keyframes noticeIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+  .notice-title { font-family:'Playfair Display',serif; font-size:1.35rem; font-weight:700; margin-bottom:8px; }
+  .notice-message { color:var(--muted); font-size:.92rem; line-height:1.65; margin-bottom:20px; white-space:pre-line; }
+  .notice-btn { width:100%; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; border:none; border-radius:12px; padding:12px; font-family:'DM Sans',sans-serif; font-size:.94rem; cursor:pointer; }
+
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; }
+    .left-panel { padding: 48px 32px 40px; min-height: 340px; }
+    .right-panel { padding: 48px 24px; }
+    .brand-desc { display: none; }
+    .social-proof { display: none; }
+  }
+  @media (max-width: 500px) {
+    .form-row.two-col { grid-template-columns: 1fr; }
+    .right-panel { padding: 36px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ LEFT PANEL ═══ -->
+<div class="left-panel">
+  <div class="blob-l blob-l1"></div>
+  <div class="blob-l blob-l2"></div>
+  <div class="left-content">
+    <a href="strangerdate.html" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Back to Spark
+    </a>
+
+    <div class="brand-logo">Spark</div>
+    <h1 class="brand-tagline">One click away<br>from something <em>real.</em></h1>
+    <p class="brand-desc">Join millions of people discovering genuine conversations with strangers around the world — no algorithms, no matching, just humans.</p>
+
+    <div class="avatar-stack">
+      <div class="av" style="background:rgba(255,78,106,.3)">A</div>
+      <div class="av" style="background:rgba(199,125,255,.3)">P</div>
+      <div class="av" style="background:rgba(255,140,66,.3)">C</div>
+      <div class="av" style="background:rgba(72,199,190,.3)">S</div>
+      <div class="av" style="background:rgba(100,160,255,.3)">Y</div>
+      <div class="stack-label">
+        <strong>4.2M+ connections made</strong>
+        <span>12,480 people online now</span>
+      </div>
+    </div>
+
+    <div class="social-proof">
+      <div class="proof-item">
+        <div class="proof-icon" style="background:rgba(255,78,106,.12)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ff4e6a" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+        </div>
+        <div class="proof-text"><strong>HD Video &amp; Audio</strong>Crystal-clear calls with people worldwide</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-icon" style="background:rgba(199,125,255,.12)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#c77dff" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        </div>
+        <div class="proof-text"><strong>190+ Countries</strong>The whole world is waiting to talk</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-icon" style="background:rgba(72,199,190,.12)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#48c7be" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="proof-text"><strong>AI Safety Shield</strong>Moderated, age-verified, always safe</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RIGHT PANEL ═══ -->
+<div class="right-panel">
+  <div class="auth-box">
+
+    <!-- Tabs (hidden in forgot/success) -->
+    <div class="auth-tabs" id="authTabs">
+      <button class="auth-tab active" data-view="login">Sign In</button>
+      <button class="auth-tab" data-view="signup">Sign Up</button>
+    </div>
+
+    <!-- ── VIEW: LOGIN ── -->
+    <div class="view active" id="view-login">
+      <div class="panel-heading">
+        <h2>Welcome back</h2>
+        <p>Sign in to your Spark account</p>
+      </div>
+
+      
+
+      <div class="form-row">
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" placeholder="you@example.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <div class="field-meta">
+            <label>Password</label>
+            <button class="forgot-btn" id="goForgot">Forgot password?</button>
+          </div>
+          <div class="pw-wrap">
+            <input type="password" id="loginPw" placeholder="••••••••">
+            <button class="pw-toggle" onclick="togglePw('loginPw',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="loginSubmitBtn">Sign In to Spark</button>
+      <p class="switch-note">Don't have an account? <button data-view="signup">Create one free</button></p>
+    </div>
+
+    <!-- ── VIEW: SIGNUP ── -->
+    <div class="view" id="view-signup">
+      <div class="panel-heading">
+        <h2>Join Spark</h2>
+        <p>Create your free account in seconds</p>
+      </div>
+
+      
+
+      <div class="form-row two-col">
+        <div class="field"><label>First name</label><input type="text" placeholder="Alex"></div>
+        <div class="field"><label>Last name</label><input type="text" placeholder="Smith"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Email address</label><input type="email" placeholder="you@example.com"></div>
+      </div>
+      <div class="form-row two-col">
+        <div class="field">
+          <label>Age</label>
+          <input type="number" id="signupAge" placeholder="18+" min="18">
+        </div>
+        <div class="field">
+          <label>Sex</label>
+          <select id="signupGender">
+            <option value="" disabled selected>Select...</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="signupPw" placeholder="Create a strong password" oninput="checkStrength(this)">
+            <button class="pw-toggle" onclick="togglePw('signupPw',this)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="pw-strength" id="pwStrength">
+            <div class="pw-bar" id="bar1"></div>
+            <div class="pw-bar" id="bar2"></div>
+            <div class="pw-bar" id="bar3"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="agreeTerms">
+        <label for="agreeTerms">I agree to Spark's <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. I confirm I am at least 18 years old.</label>
+      </div>
+
+      <button class="btn-submit" id="signupSubmitBtn">Create My Account</button>
+      <p class="switch-note">Already have an account? <button data-view="login">Sign in</button></p>
+    </div>
+
+    <!-- ── VIEW: FORGOT PASSWORD ── -->
+    <div class="view" id="view-forgot">
+      <div class="forgot-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ff4e6a" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      </div>
+      <div class="panel-heading">
+        <h2>Reset your password</h2>
+        <p>Enter your email and we'll send you a reset link right away.</p>
+      </div>
+
+      <div class="form-row">
+        <div class="field"><label>Email address</label><input type="email" placeholder="you@example.com" id="forgotEmail"></div>
+      </div>
+
+      <button class="btn-submit" id="sendResetBtn" onclick="showSuccess()">Send Reset Link</button>
+      <p class="switch-note" style="margin-top:20px"><button data-view="login">Back to sign in</button></p>
+    </div>
+
+    <!-- ── VIEW: SUCCESS ── -->
+    <div class="view" id="view-success">
+      <div class="success-box">
+        <div class="success-circle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#48c7be" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h2 class="success-title">Check your inbox</h2>
+        <p class="success-desc">We've sent a password reset link to your email address. It will expire in 15 minutes.</p>
+        <button class="btn-submit" data-view="login">Back to Sign In</button>
+      </div>
+    </div>
+
+    <div class="auth-footer">
+      Protected by reCAPTCHA &mdash; <a href="#">Privacy</a> &middot; <a href="#">Terms</a>
+    </div>
+
+  </div>
+</div>
+
+<div class="notice-overlay" id="noticeOverlay">
+  <div class="notice-box">
+    <div class="notice-title" id="noticeTitle">Notice</div>
+    <div class="notice-message" id="noticeMessage"></div>
+    <button class="notice-btn" id="noticeBtn">OK</button>
+  </div>
+</div>
+
+<script>
+/* ── VIEW SWITCHING ── */
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+
+  const hideTabs = ['forgot','success'].includes(id);
+  document.getElementById('authTabs').classList.toggle('hidden', hideTabs);
+
+  if (!hideTabs) {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  }
+}
+
+document.querySelectorAll('[data-view]').forEach(el => {
+  el.addEventListener('click', () => showView(el.dataset.view));
+});
+
+document.getElementById('goForgot').addEventListener('click', () => showView('forgot'));
+
+/* ── HASH ROUTING (for ?#forgot from popup) ── */
+if (location.hash === '#forgot') showView('forgot');
+
+/* ── PASSWORD TOGGLE ── */
+function togglePw(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.querySelector('svg').innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+/* ── PASSWORD STRENGTH ── */
+function checkStrength(inp) {
+  const v = inp.value;
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (/[A-Z]/.test(v) && /[0-9]/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  const cls = ['','weak','medium','strong'];
+  ['bar1','bar2','bar3'].forEach((id, i) => {
+    const b = document.getElementById(id);
+    b.className = 'pw-bar ' + (i < score ? cls[score] : '');
+  });
+}
+
+/* ── FORGOT SUCCESS ── */
+function showSuccess() { showView('success'); }
+
+function showNotice(title, message, buttonText = 'OK') {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('noticeOverlay');
+    const btn = document.getElementById('noticeBtn');
+    document.getElementById('noticeTitle').textContent = title;
+    document.getElementById('noticeMessage').textContent = message;
+    btn.textContent = buttonText;
+    overlay.classList.add('open');
+    btn.onclick = () => { overlay.classList.remove('open'); resolve(); };
+  });
+}
+</script>
+
+  <!-- Spark API -->
+  <script src="/spark-api.js"></script>
+  <script>
+  // Already logged in → skip straight to app
+  if (SparkAPI.isLoggedIn()) window.location.href = '/videochat.html';
+
+  // ── Login ──────────────────────────────────────────────────────────────────
+  document.getElementById('loginSubmitBtn').addEventListener('click', async function() {
+    const email = document.querySelector('#view-login input[type=email]').value.trim();
+    const pw    = document.getElementById('loginPw').value;
+    if (!email) { await showNotice('Email required', 'Please enter your email address.'); return; }
+    if (!pw)    { await showNotice('Password required', 'Please enter your password.'); return; }
+    this.textContent = 'Signing in…'; this.disabled = true;
+    try {
+      await SparkAPI.login(email, pw);
+      window.location.href = '/videochat.html';
+    } catch(e) {
+      if (e.data?.needs_verification) {
+        await SparkAPI.resendVerification(email).catch(() => null);
+        await showNotice('Verify your email', 'A new OTP code was sent to your email. Enter it on the verification page before signing in.', 'Enter OTP');
+        window.location.href = '/verify-email.html?email=' + encodeURIComponent(email);
+      } else {
+        await showNotice('Sign in failed', e.message || 'Login failed. Check your email and password.');
+      }
+      this.textContent = 'Sign In to Spark'; this.disabled = false;
+    }
+  });
+
+  // ── Sign Up ────────────────────────────────────────────────────────────────
+  document.getElementById('signupSubmitBtn').addEventListener('click', async function() {
+    const inputs = document.querySelectorAll('#view-signup .form-row.two-col input');
+    const fname  = (inputs[0]?.value || '').trim();
+    const lname  = (inputs[1]?.value || '').trim();
+    const email  = document.querySelector('#view-signup input[type=email]').value.trim();
+    const age    = document.getElementById('signupAge').value;
+    const gender = document.getElementById('signupGender').value;
+    const pw     = document.getElementById('signupPw').value;
+    const agreed = document.getElementById('agreeTerms').checked;
+
+    if (!fname)  { await showNotice('First name required', 'Please enter your first name.'); return; }
+    if (!email)  { await showNotice('Email required', 'Please enter your email address.'); return; }
+    if (!age || Number(age) < 18) { await showNotice('Age required', 'You must be at least 18 years old.'); return; }
+    if (!gender) { await showNotice('Sex required', 'Please select your sex.'); return; }
+    if (!pw)     { await showNotice('Password required', 'Please enter a password.'); return; }
+    if (pw.length < 8) { await showNotice('Password too short', 'Password must be at least 8 characters.'); return; }
+    if (!agreed) { await showNotice('Terms required', 'Please agree to the Terms of Service to continue.'); return; }
+
+    this.textContent = 'Creating account…'; this.disabled = true;
+    try {
+      const res = await SparkAPI.register(fname, lname, email, pw, age, gender);
+      await showNotice(
+        'Check your email',
+        res.email_sent
+          ? 'Account created. Enter the OTP code sent to your email.'
+          : 'Account created, but the OTP email could not be sent. Please try resending the code from the verification page.',
+        'Enter OTP'
+      );
+      window.location.href = '/verify-email.html?email=' + encodeURIComponent(email);
+    } catch(e) {
+      await showNotice('Sign up failed', e.message || 'Sign up failed. Please try again.');
+    } finally {
+      this.textContent = 'Create My Account'; this.disabled = false;
+    }
+  });
+  </script>
+</body>
+</html>

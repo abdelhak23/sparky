@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Cash Out</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b0a10;--card:#171625;--muted:#8581aa;--text:#f0ecff;--border:rgba(255,255,255,.08);--accent:#ff4e6a;--accent2:#ff8c42;--teal:#48c7be;--gold:#f5c842}
+body{min-height:100vh;background:#0b0a10;background-image:radial-gradient(circle at 12% 8%,rgba(255,78,106,.25),transparent 30%),radial-gradient(circle at 90% 10%,rgba(199,125,255,.2),transparent 34%),linear-gradient(135deg,#0b0a10,#160d1f 50%,#0d1020);color:var(--text);font-family:'DM Sans',sans-serif;padding:24px}
+.wrap{max-width:980px;margin:0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:24px}
+.brand{font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn{border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);border-radius:10px;padding:10px 14px;text-decoration:none;cursor:pointer}
+.hero{background:rgba(23,22,37,.86);border:1px solid var(--border);border-radius:10px;padding:26px;margin-bottom:16px;box-shadow:0 24px 70px rgba(0,0,0,.38)}
+h1{font-family:'Playfair Display',serif;font-size:2rem;margin-bottom:8px}
+.sub{color:var(--muted);line-height:1.65}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.card{background:rgba(17,16,29,.88);border:1px solid var(--border);border-radius:8px;padding:18px}
+.label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px}
+.value{font-family:'Playfair Display',serif;font-size:1.75rem}
+.main{display:grid;grid-template-columns:1fr 1.15fr;gap:14px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px}
+input,select{width:100%;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);border-radius:10px;padding:12px;outline:none;font-family:'DM Sans',sans-serif}
+select option{background:#151321;color:var(--text)}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,78,106,.14)}
+.submit{width:100%;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-radius:12px;padding:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.notice{background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.22);color:#ead991;border-radius:8px;padding:12px;margin-top:12px;font-size:.86rem;line-height:1.5}
+table{width:100%;border-collapse:collapse}
+th,td{border-bottom:1px solid rgba(255,255,255,.06);padding:10px;text-align:left;font-size:.83rem;vertical-align:top}
+th{color:var(--muted);text-transform:uppercase;font-size:.68rem;letter-spacing:.6px}
+.pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:2px 8px;font-size:.72rem;color:var(--muted)}
+.pill.ok{color:var(--teal);border-color:rgba(72,199,190,.3);background:rgba(72,199,190,.08)}
+.pill.warn{color:var(--gold);border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.08)}
+.pill.bad{color:var(--accent);border-color:rgba(255,78,106,.3);background:rgba(255,78,106,.08)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#171625;border:1px solid var(--border);border-radius:999px;padding:11px 16px;color:var(--text);box-shadow:0 12px 40px rgba(0,0,0,.45);display:none}
+.toast.show{display:block}
+@media(max-width:760px){body{padding:14px}.top{align-items:flex-start;flex-direction:column}.grid,.main{grid-template-columns:1fr}.value{font-size:1.45rem}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="brand">Spark</div>
+      <div class="sub">Gift earnings and cashouts</div>
+    </div>
+    <div>
+      <a class="btn" href="/videochat.html">Video Chat</a>
+      <a class="btn" href="/profile.html">Profile</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <h1>Cash out your gifts</h1>
+    <p class="sub">When someone sends you a gift, its value is added to your creator balance. Request a payout to PayPal or Stripe once you reach the minimum.</p>
+    <div class="grid">
+      <div class="card"><div class="label">Available</div><div class="value" id="balance">$0.00</div></div>
+      <div class="card"><div class="label">Total Earned</div><div class="value" id="earned">$0.00</div></div>
+      <div class="card"><div class="label">Paid Out</div><div class="value" id="paid">$0.00</div></div>
+    </div>
+  </section>
+
+  <div class="main">
+    <section class="card">
+      <div class="label">New Cashout</div>
+      <div class="field">
+        <label>Amount</label>
+        <input id="amount" type="number" min="10" step="0.01" placeholder="10.00">
+      </div>
+      <div class="field">
+        <label>Method</label>
+        <select id="method">
+          <option value="paypal">PayPal email</option>
+          <option value="stripe">Stripe account / email</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Destination</label>
+        <input id="destination" placeholder="your-paypal@email.com">
+      </div>
+      <button class="submit" id="requestBtn">Request Cashout</button>
+      <div class="notice" id="minimumNote">Minimum cashout: $10.00. Stripe payouts require you to manually pay or later add Stripe Connect.</div>
+    </section>
+
+    <section class="card">
+      <div class="label">Requests</div>
+      <table>
+        <thead><tr><th>ID</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody id="withdrawalsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/spark-api.js"></script>
+<script>
+if (!SparkAPI.isLoggedIn()) window.location.href = '/login.html';
+let summary = null;
+
+function money(cents){ return '$' + ((Number(cents || 0)) / 100).toFixed(2); }
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function date(v){ return v ? new Date(v).toLocaleString() : '-'; }
+function pill(s){ return `<span class="pill ${s === 'paid' ? 'ok' : s === 'pending' ? 'warn' : 'bad'}">${esc(s)}</span>`; }
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600); }
+
+async function loadCashout(){
+  try{
+    summary = await SparkAPI.cashoutSummary();
+    document.getElementById('balance').textContent = money(summary.cash_balance_cents);
+    document.getElementById('earned').textContent = money(summary.total_earned_cents);
+    document.getElementById('paid').textContent = money(summary.total_paid_out_cents);
+    document.getElementById('minimumNote').textContent = `Minimum cashout: ${money(summary.minimum_withdrawal_cents)}. PayPal and Stripe requests are reviewed by admin before money is sent.`;
+    document.getElementById('amount').min = (summary.minimum_withdrawal_cents / 100).toFixed(2);
+    document.getElementById('amount').placeholder = (summary.minimum_withdrawal_cents / 100).toFixed(2);
+    renderWithdrawals();
+  }catch(e){
+    toast(e.message || 'Could not load cashout balance.');
+  }
+}
+
+function renderWithdrawals(){
+  const rows = (summary.withdrawals || []).map(w => `
+    <tr><td>${w.id}</td><td>${money(w.amount_cents)}</td><td>${esc(w.method)}<br><span class="sub">${esc(w.destination)}</span></td><td>${pill(w.status)}</td><td>${date(w.created_at)}</td></tr>
+  `).join('');
+  document.getElementById('withdrawalsBody').innerHTML = rows || '<tr><td colspan="5">No cashout requests yet.</td></tr>';
+}
+
+document.getElementById('method').addEventListener('change', e => {
+  document.getElementById('destination').placeholder = e.target.value === 'paypal' ? 'your-paypal@email.com' : 'acct_... or stripe@email.com';
+});
+
+document.getElementById('requestBtn').addEventListener('click', async () => {
+  const amount = Math.round(Number(document.getElementById('amount').value || 0) * 100);
+  const method = document.getElementById('method').value;
+  const destination = document.getElementById('destination').value.trim();
+  if (!amount || amount < summary.minimum_withdrawal_cents) { toast('Enter at least ' + money(summary.minimum_withdrawal_cents)); return; }
+  if (!destination) { toast('Enter payout destination.'); return; }
+  try{
+    await SparkAPI.requestCashout(amount, method, destination);
+    document.getElementById('amount').value = '';
+    document.getElementById('destination').value = '';
+    toast('Cashout request sent.');
+    await loadCashout();
+  }catch(e){
+    toast(e.message || 'Cashout request failed.');
+  }
+});
+
+loadCashout();
+</script>
+</body>
+</html>

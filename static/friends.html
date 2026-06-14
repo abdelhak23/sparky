@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Friends</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0a10;--surface:#13121c;--card:#1a1827;
+  --accent1:#ff4e6a;--accent2:#ff8c42;--accent3:#c77dff;
+  --gold:#f5c842;--teal:#48c7be;
+  --text:#f0ecff;--muted:#7b78a0;
+  --border:rgba(255,255,255,0.08);--glow1:rgba(255,78,106,0.35);
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");background-size:200px;pointer-events:none;z-index:1000;opacity:.4}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:16px 40px;background:rgba(11,10,16,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);gap:16px}
+.nav-logo{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:900;background:linear-gradient(135deg,var(--accent1),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-link{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:.85rem;transition:background .2s,color .2s}
+.nav-link:hover,.nav-link.active{background:rgba(255,255,255,.06);color:var(--text)}
+.nav-link svg{width:15px;height:15px}
+.nav-link .badge{background:var(--accent1);color:#fff;font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:50px;margin-left:2px}
+.token-pill{display:flex;align-items:center;gap:6px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);color:var(--gold);font-size:.8rem;font-weight:600;padding:6px 14px;border-radius:50px;cursor:pointer;text-decoration:none;transition:background .2s}
+.token-pill:hover{background:rgba(245,200,66,.18)}
+.token-pill svg{width:14px;height:14px}
+
+/* LAYOUT */
+.page{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+.page-title{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;margin-bottom:8px}
+.page-sub{color:var(--muted);font-size:.9rem;margin-bottom:32px}
+
+/* SEARCH BAR */
+.search-wrap{position:relative;margin-bottom:32px}
+.search-wrap > svg{position:absolute;left:16px;top:24px;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
+.search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px 14px 46px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s}
+.search-input:focus{border-color:var(--accent1);box-shadow:0 0 0 3px rgba(255,78,106,.12)}
+.search-input::placeholder{color:#4a4870}
+.search-results{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-top:8px;overflow:hidden;display:none}
+.search-results.open{display:block}
+
+/* Hide browser-injected icons in inputs */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-search-cancel-button,
+input::-webkit-search-decoration,
+input::-ms-clear,
+input::-ms-reveal {
+  display: none !important;
+}
+
+/* TABS */
+.tabs{display:flex;gap:4px;background:rgba(255,255,255,.04);padding:4px;border-radius:14px;margin-bottom:24px;width:fit-content}
+.tab-btn{padding:9px 20px;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;border-radius:11px;cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
+.tab-btn.active{background:var(--accent1);color:#fff;box-shadow:0 4px 16px rgba(255,78,106,.4)}
+
+/* FRIEND CARD */
+.friend-card{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;transition:border-color .2s}
+.friend-card:hover{border-color:rgba(255,255,255,.14)}
+.fc-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,rgba(255,78,106,.25),rgba(199,125,255,.25));display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.85);flex-shrink:0;position:relative}
+.online-dot{position:absolute;bottom:1px;right:1px;width:11px;height:11px;border-radius:50%;background:var(--teal);border:2px solid var(--bg)}
+.fc-info{flex:1}
+.fc-name{font-size:.95rem;font-weight:500}
+.fc-sub{font-size:.78rem;color:var(--muted);margin-top:2px}
+.fc-actions{display:flex;gap:8px}
+.btn-sm{display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:500;cursor:pointer;border:none;transition:background .2s,transform .15s;white-space:nowrap}
+.btn-sm:hover{transform:translateY(-1px)}
+.btn-sm.primary{background:var(--accent1);color:#fff;box-shadow:0 3px 12px rgba(255,78,106,.35)}
+.btn-sm.secondary{background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted)}
+.btn-sm.secondary:hover{color:var(--text)}
+.btn-sm.success{background:rgba(72,199,190,.15);border:1px solid rgba(72,199,190,.3);color:var(--teal)}
+.btn-sm.danger{background:rgba(255,78,106,.1);border:1px solid rgba(255,78,106,.25);color:var(--accent1)}
+.btn-sm.gold{background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:var(--gold)}
+.btn-sm svg{width:13px;height:13px}
+
+.list-grid{display:flex;flex-direction:column;gap:10px}
+
+/* EMPTY */
+.empty{text-align:center;padding:56px 24px;color:var(--muted)}
+.empty svg{width:44px;height:44px;margin:0 auto 14px;display:block;opacity:.25}
+.empty h3{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:8px}
+.empty p{font-size:.88rem;line-height:1.7}
+
+/* TOAST */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:rgba(8,7,16,.92);border:1px solid var(--border);border-radius:50px;padding:10px 24px;font-size:.88rem;color:var(--text);opacity:0;pointer-events:none;transition:opacity .3s;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* SECTION LABEL */
+.section-label{font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;margin-top:24px}
+
+@media(max-width:700px){
+  nav{padding:14px 16px}
+  .nav-links .nav-link span{display:none}
+  .page{padding:24px 16px 60px}
+  .tabs{width:100%}
+  .tab-btn{flex:1;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/strangerdate.html" class="nav-logo">Spark</a>
+  <div class="nav-links">
+    <a href="/videochat.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+      <span>Chat</span>
+    </a>
+    <a href="/friends.html" class="nav-link active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <span>Friends</span>
+      <span class="badge" id="pendingBadge" style="display:none">0</span>
+    </a>
+    <a href="/chat.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span>Messages</span>
+      <span class="badge" id="unreadBadge" style="display:none">0</span>
+    </a>
+    <a href="/profile.html" class="nav-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Profile</span>
+    </a>
+  </div>
+  <a href="/profile.html" class="token-pill">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="rgba(245,200,66,.2)" stroke="#f5c842" stroke-width="1.5"/><circle cx="12" cy="12" r="3" fill="#f5c842"/></svg>
+    <span id="tokenCount">—</span>
+  </a>
+</nav>
+
+<div class="page">
+  <div class="page-title">Find Friends</div>
+  <div class="page-sub">Search and connect with anyone across the entire Spark network</div>
+
+  <!-- SEARCH -->
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search by name or email…" autocomplete="off">
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="friends" onclick="switchTab('friends')">Friends</button>
+    <button class="tab-btn" data-tab="pending" onclick="switchTab('pending')">Requests <span id="tabPendingCount"></span></button>
+    <button class="tab-btn" data-tab="sent" onclick="switchTab('sent')">Sent</button>
+  </div>
+
+  <!-- FRIENDS LIST -->
+  <div id="tab-friends">
+    <div class="list-grid" id="friendsList"></div>
+  </div>
+
+  <!-- PENDING REQUESTS -->
+  <div id="tab-pending" style="display:none">
+    <div class="list-grid" id="pendingList"></div>
+  </div>
+
+  <!-- SENT REQUESTS -->
+  <div id="tab-sent" style="display:none">
+    <div class="list-grid" id="sentList"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  if (typeof io === 'undefined') {
+    document.write('<scr'+'ipt src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/sc'+'ript>');
+  }
+</script>
+<script src="/spark-api.js"></script>
+<script>
+if (!SparkAPI.isLoggedIn()) window.location.href = '/login.html';
+
+const H = { 'Authorization': 'Bearer ' + SparkAPI.getToken(), 'Content-Type': 'application/json' };
+let _friends = [], _onlineIds = new Set(), _myId = null;
+
+// ── Socket for online status ──────────────────────────────────────────────────
+const socket = SparkAPI.connectSocket();
+socket.on('friends_online', d => {
+  _onlineIds = new Set(d.online_ids);
+  renderFriends(_friends);
+});
+
+// ── Load page ─────────────────────────────────────────────────────────────────
+async function loadAll() {
+  try {
+    const [meRes, friendsRes, pendingRes, sentRes, unreadRes] = await Promise.all([
+      SparkAPI.me(),
+      fetch('/api/friends/', { headers: H }).then(r => r.json()),
+      fetch('/api/friends/pending', { headers: H }).then(r => r.json()),
+      fetch('/api/friends/sent', { headers: H }).then(r => r.json()),
+      fetch('/api/friends/dm/unread', { headers: H }).then(r => r.json()),
+    ]);
+
+    _myId = meRes.user.id;
+    document.getElementById('tokenCount').textContent = meRes.user.tokens;
+
+    _friends = friendsRes.friends || [];
+    const pending = pendingRes.pending || [];
+    const sent    = sentRes.sent    || [];
+
+    renderFriends(_friends);
+    renderPending(pending);
+    renderSent(sent);
+
+    // Check online status
+    if (_friends.length) {
+      socket.emit('friend_online_check', { friend_ids: _friends.map(f => f.friend.id) });
+    }
+
+    // Badges
+    if (pending.length) {
+      const b = document.getElementById('pendingBadge');
+      b.style.display = 'inline'; b.textContent = pending.length;
+      document.getElementById('tabPendingCount').textContent = ` (${pending.length})`;
+    }
+    if (unreadRes.unread > 0) {
+      const b = document.getElementById('unreadBadge');
+      b.style.display = 'inline'; b.textContent = unreadRes.unread;
+    }
+  } catch(e) { showToast('Failed to load friends.'); }
+}
+
+function renderFriends(list) {
+  const el = document.getElementById('friendsList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <h3>No friends yet</h3>
+      <p>Use the search bar above to find and add anyone on Spark.</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const online = _onlineIds.has(f.friend.id);
+    const initials = ((f.friend.first_name || '?').charAt(0) + (f.friend.last_name || '').charAt(0)).toUpperCase();
+    const avHtml = f.friend.avatar_url ? `<img src="${f.friend.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : initials;
+    return `<div class="friend-card">
+      <div class="fc-avatar" style="overflow:hidden">${avHtml}${online ? '<span class="online-dot"></span>' : ''}</div>
+      <div class="fc-info">
+        <div class="fc-name">${f.friend.first_name} ${f.friend.last_name || ''}</div>
+        <div class="fc-sub">${online ? '🟢 Online now' : 'Offline'}</div>
+      </div>
+      <div class="fc-actions">
+        <button class="btn-sm gold" onclick="window.location.href='/chat.html?with=${f.friend.id}'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Message
+        </button>
+        <button class="btn-sm danger" onclick="removeFriend(${f.friend.id}, this)">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPending(list) {
+  const el = document.getElementById('pendingList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.63 19.79 19.79 0 01.04 1.02 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg><h3>No pending requests</h3><p>When someone sends you a friend request it will appear here.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const initials = ((f.friend.first_name || '?').charAt(0) + (f.friend.last_name || '').charAt(0)).toUpperCase();
+    const avHtml = f.friend.avatar_url ? `<img src="${f.friend.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : initials;
+    return `<div class="friend-card">
+      <div class="fc-avatar" style="overflow:hidden">${avHtml}</div>
+      <div class="fc-info">
+        <div class="fc-name">${f.friend.first_name} ${f.friend.last_name || ''}</div>
+        <div class="fc-sub">Wants to be your friend</div>
+      </div>
+      <div class="fc-actions">
+        <button class="btn-sm success" onclick="acceptRequest(${f.id}, this)">✓ Accept</button>
+        <button class="btn-sm danger"  onclick="declineRequest(${f.id}, this)">✕ Decline</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSent(list) {
+  const el = document.getElementById('sentList');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg><h3>No sent requests</h3><p>Find friends using the search bar above.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const initials = ((f.friend.first_name || '?').charAt(0) + (f.friend.last_name || '').charAt(0)).toUpperCase();
+    const avHtml = f.friend.avatar_url ? `<img src="${f.friend.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : initials;
+    return `<div class="friend-card">
+      <div class="fc-avatar" style="overflow:hidden">${avHtml}</div>
+      <div class="fc-info">
+        <div class="fc-name">${f.friend.first_name} ${f.friend.last_name || ''}</div>
+        <div class="fc-sub">Request pending…</div>
+      </div>
+      <div class="fc-actions">
+        <button class="btn-sm secondary" disabled>Pending</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['friends','pending','sent'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+}
+
+// ── Friend actions ────────────────────────────────────────────────────────────
+async function sendRequest(userId, btn) {
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    await fetch(`/api/friends/request/${userId}`, { method: 'POST', headers: H });
+    btn.textContent = '✓ Sent'; btn.className = 'btn-sm secondary';
+    showToast('Friend request sent!');
+  } catch (e) { showToast('Could not send request.'); btn.disabled = false; }
+}
+
+async function acceptRequest(id, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(`/api/friends/request/${id}/accept`, { method: 'POST', headers: H });
+    showToast('Friend added!');
+    loadAll();
+  } catch (e) { showToast('Failed.'); btn.disabled = false; }
+}
+
+async function declineRequest(id, btn) {
+  btn.disabled = true;
+  try {
+    await fetch(`/api/friends/request/${id}/decline`, { method: 'POST', headers: H });
+    showToast('Request declined.');
+    loadAll();
+  } catch (e) { showToast('Failed.'); btn.disabled = false; }
+}
+
+async function removeFriend(userId, btn) {
+  if (!confirm('Remove this friend?')) return;
+  try {
+    await fetch(`/api/friends/${userId}`, { method: 'DELETE', headers: H });
+    showToast('Friend removed.');
+    loadAll();
+  } catch (e) { showToast('Failed.'); }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+let _searchTimer;
+document.getElementById('searchInput').addEventListener('input', function() {
+  clearTimeout(_searchTimer);
+  const q = this.value.trim();
+  if (!q) {
+    document.getElementById('searchResults').classList.remove('open');
+    return;
+  }
+  _searchTimer = setTimeout(() => doSearch(q), 350);
+});
+
+document.getElementById('searchInput').addEventListener('focus', function() {
+  const q = this.value.trim();
+  if (q) doSearch(q);
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) {
+    document.getElementById('searchResults').classList.remove('open');
+  }
+});
+
+async function doSearch(q) {
+  try {
+    const res  = await fetch(`/api/friends/search?q=${encodeURIComponent(q)}`, { headers: H });
+    if (!res.ok) {
+      console.error("Search failed:", await res.text());
+      return;
+    }
+    const data = await res.json();
+    renderSearch(data.users || []);
+  } catch(e) { console.error(e); }
+}
+
+function renderSearch(users) {
+  const el = document.getElementById('searchResults');
+  if (!users.length) {
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.85rem">No users found</div>';
+    el.classList.add('open'); return;
+  }
+  el.innerHTML = users.map(u => {
+    const initials = ((u.first_name || '?').charAt(0) + (u.last_name || '').charAt(0)).toUpperCase();
+    const avHtml = u.avatar_url ? `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : initials;
+    let actionHtml = '';
+    if (u.friendship === 'accepted') {
+      actionHtml = '<button class="btn-sm secondary" disabled>Already friends</button>';
+    } else if (u.friendship === 'pending') {
+      actionHtml = '<button class="btn-sm secondary" disabled>Pending</button>';
+    } else {
+      actionHtml = `<button class="btn-sm primary" onclick="sendRequest(${u.id}, this)">+ Add Friend</button>`;
+    }
+    return `<div class="friend-card" style="border-radius:0;border-left:none;border-right:none;border-top:none">
+      <div class="fc-avatar" style="width:40px;height:40px;font-size:.95rem;overflow:hidden">${avHtml}</div>
+      <div class="fc-info">
+        <div class="fc-name">${u.first_name} ${u.last_name || ''}</div>
+      </div>
+      <div class="fc-actions">${actionHtml}</div>
+    </div>`;
+  }).join('');
+  el.classList.add('open');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadAll();
+</script>
+</body>
+</html>

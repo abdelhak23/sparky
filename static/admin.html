@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b0a10;--card:#171625;--panel:#11111d;--border:rgba(255,255,255,.08);--text:#f0ecff;--muted:#8581aa;--accent:#ff4e6a;--gold:#f5c842;--teal:#48c7be}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+body{padding:24px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.brand{font-family:'Playfair Display',serif;font-size:1.7rem;font-weight:900;background:linear-gradient(135deg,#ff4e6a,#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.actions{display:flex;gap:8px}
+.btn{border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);border-radius:10px;padding:9px 13px;cursor:pointer;text-decoration:none;font-size:.84rem}
+.btn:hover{background:rgba(255,255,255,.1)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.v{font-family:'Playfair Display',serif;font-size:1.7rem;font-weight:700}
+.tabs{display:flex;gap:6px;margin:20px 0 12px;flex-wrap:wrap}
+.tab{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);border-radius:10px;padding:9px 14px;cursor:pointer}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.panel{display:none;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.panel.active{display:block}
+.table-wrap{overflow:auto;max-height:68vh}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th,td{border-bottom:1px solid rgba(255,255,255,.06);padding:10px 12px;text-align:left;font-size:.82rem;vertical-align:top}
+th{position:sticky;top:0;background:#151423;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.68rem;letter-spacing:.6px;z-index:1}
+td{color:#ddd8f4}
+.muted{color:var(--muted)}
+.pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:2px 8px;font-size:.72rem;color:var(--muted)}
+.pill.ok{color:var(--teal);border-color:rgba(72,199,190,.3);background:rgba(72,199,190,.08)}
+.pill.warn{color:var(--gold);border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.08)}
+.pill.bad{color:var(--accent);border-color:rgba(255,78,106,.3);background:rgba(255,78,106,.08)}
+.toolbar{display:flex;align-items:center;gap:10px;padding:12px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+.search{width:280px;max-width:100%;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);border-radius:10px;padding:9px 12px;outline:none}
+.notice{background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.22);color:#ead991;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:.86rem;line-height:1.5}
+.empty,.error{padding:28px;color:var(--muted);text-align:center}
+.error{color:var(--accent)}
+.danger-btn{border:1px solid rgba(255,78,106,.35);background:rgba(255,78,106,.1);color:#ff9aaa;border-radius:9px;padding:7px 10px;cursor:pointer;font-size:.78rem}
+.danger-btn:hover{background:rgba(255,78,106,.18);color:#fff}
+.ok-btn{border:1px solid rgba(72,199,190,.35);background:rgba(72,199,190,.1);color:#8de5df;border-radius:9px;padding:7px 10px;cursor:pointer;font-size:.78rem}
+.ok-btn:hover{background:rgba(72,199,190,.18);color:#fff}
+.cell-actions{display:flex;gap:7px;flex-wrap:wrap}
+.mini-user strong{display:block;margin-bottom:3px}
+.mini-user span{display:block;color:var(--muted);font-size:.76rem;line-height:1.45}
+.modal{position:fixed;inset:0;background:rgba(7,6,14,.76);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:18px;z-index:20}
+.modal.open{display:flex}
+.modal-box{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.65)}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.35rem;margin-bottom:8px}
+.modal-text{color:var(--muted);font-size:.9rem;line-height:1.55;margin-bottom:18px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+@media(max-width:800px){body{padding:14px}.grid{grid-template-columns:repeat(2,1fr)}.top{align-items:flex-start;flex-direction:column}.v{font-size:1.35rem}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <div class="brand">Spark Admin</div>
+    <div class="muted" id="loadedAt">Loading site data...</div>
+  </div>
+  <div class="actions">
+    <button class="btn" onclick="loadAdmin()">Refresh</button>
+    <a class="btn" href="/profile.html">Profile</a>
+  </div>
+</div>
+
+<div class="notice">Passwords are not shown because Spark stores password hashes only. This page shows hash metadata for auditing; use reset flows for account access.</div>
+
+<div class="grid" id="summaryGrid"></div>
+
+<div class="tabs">
+  <button class="tab active" data-panel="users">Users</button>
+  <button class="tab" data-panel="reports">Reports</button>
+  <button class="tab" data-panel="sessions">Sessions</button>
+  <button class="tab" data-panel="purchases">Purchases</button>
+  <button class="tab" data-panel="cashouts">Cashouts</button>
+</div>
+
+<div class="panel active" id="panel-users">
+  <div class="toolbar"><input class="search" id="userSearch" placeholder="Search users..." oninput="renderUsers()"><span class="muted" id="userCount"></span></div>
+  <div class="table-wrap"><table><thead><tr>
+    <th>ID</th><th>User</th><th>Country</th><th>Tokens</th><th>Time</th><th>Activity</th><th>Password</th><th>Status</th><th>Dates</th><th>Actions</th>
+  </tr></thead><tbody id="usersBody"></tbody></table></div>
+</div>
+
+<div class="panel" id="panel-reports">
+  <div class="table-wrap"><table><thead><tr>
+    <th>ID</th><th>Reporter</th><th>Reported</th><th>Session</th><th>Reason</th><th>Notes</th><th>Status</th><th>Created</th>
+  </tr></thead><tbody id="reportsBody"></tbody></table></div>
+</div>
+
+<div class="panel" id="panel-sessions">
+  <div class="table-wrap"><table><thead><tr>
+    <th>ID</th><th>Users</th><th>Type</th><th>Started</th><th>Ended</th><th>Duration</th><th>Tokens</th><th>Messages</th>
+  </tr></thead><tbody id="sessionsBody"></tbody></table></div>
+</div>
+
+<div class="panel" id="panel-purchases">
+  <div class="table-wrap"><table><thead><tr>
+    <th>ID</th><th>User</th><th>Tokens</th><th>Amount</th><th>Status</th><th>Created</th><th>Completed</th>
+  </tr></thead><tbody id="purchasesBody"></tbody></table></div>
+</div>
+
+<div class="panel" id="panel-cashouts">
+  <div class="table-wrap"><table><thead><tr>
+    <th>ID</th><th>User</th><th>Amount</th><th>Method</th><th>Destination</th><th>Status</th><th>Requested</th><th>Processed</th><th>Actions</th>
+  </tr></thead><tbody id="cashoutsBody"></tbody></table></div>
+</div>
+
+<script src="/spark-api.js"></script>
+<script>
+function go404() { window.location.replace('/404.html'); }
+if (!SparkAPI.isLoggedIn()) go404();
+
+let adminData = null;
+let pendingDeleteUser = null;
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === btn));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + btn.dataset.panel));
+  });
+});
+
+async function loadAdmin() {
+  try {
+    const res = await fetch('/api/admin/overview', {
+      headers: { Authorization: 'Bearer ' + SparkAPI.getToken() },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404) {
+      go404();
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || 'Admin data failed to load.');
+    adminData = data;
+    document.getElementById('loadedAt').textContent = 'Loaded ' + new Date().toLocaleString();
+    renderAll();
+  } catch (e) {
+    document.getElementById('summaryGrid').innerHTML = `<div class="card error" style="grid-column:1/-1">${esc(e.message)}</div>`;
+  }
+}
+
+function renderAll() {
+  renderSummary();
+  renderUsers();
+  renderReports();
+  renderSessions();
+  renderPurchases();
+  renderCashouts();
+}
+
+function renderSummary() {
+  const s = adminData.summary;
+  const items = [
+    ['Users', s.users], ['Active Users', s.active_users], ['Premium', s.premium_users], ['Tokens', s.tokens_in_circulation],
+    ['Sessions', s.sessions], ['Minutes Spent', s.minutes_spent], ['DMs', s.direct_messages], ['Reports', s.reports],
+    ['Pending Reports', s.pending_reports], ['Gifts', s.gifts], ['Gift Tokens', s.gift_tokens], ['Revenue', money(s.revenue_cents)],
+    ['Creator Balance', money(s.creator_balance_cents)], ['Pending Cashouts', s.pending_cashouts], ['Paid Cashouts', money(s.cashout_cents)],
+  ];
+  document.getElementById('summaryGrid').innerHTML = items.map(([k,v]) => `<div class="card"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');
+}
+
+function renderUsers() {
+  const q = (document.getElementById('userSearch').value || '').toLowerCase();
+  const users = adminData.users.filter(u => (`${u.email} ${u.first_name} ${u.last_name} ${u.country || ''}`).toLowerCase().includes(q));
+  document.getElementById('userCount').textContent = users.length + ' shown';
+  document.getElementById('usersBody').innerHTML = users.map(u => `
+    <tr>
+      <td>${u.id}</td>
+      <td><strong>${esc(u.first_name)} ${esc(u.last_name || '')}</strong><br><span class="muted">${esc(u.email)}</span><br><span class="muted">${u.age || '-'} / ${esc(u.gender || '-')}</span></td>
+      <td>${esc(u.country || '-')}</td>
+      <td>${u.tokens}</td>
+      <td>${u.minutes_spent} min<br><span class="muted">${u.sessions} sessions</span></td>
+      <td>DM ${u.dm_sent}/${u.dm_received}<br>Gifts ${u.gifts_sent}/${u.gifts_received}<br>Reports ${u.reports_made}<br><span class="muted">Cash</span> ${money(u.cash_balance_cents)}</td>
+      <td><span class="muted">${esc(u.password)}</span><br><span class="pill">hash ${esc(u.password_hash_prefix)}... (${u.password_hash_length})</span></td>
+      <td>${pill(u.is_active ? 'Active' : 'Inactive', u.is_active ? 'ok' : 'bad')} ${u.is_premium ? pill('Premium','warn') : ''} ${u.is_verified ? pill('Verified','ok') : ''}</td>
+      <td><span class="muted">Created</span><br>${date(u.created_at)}<br><span class="muted">Login</span><br>${date(u.last_login)}</td>
+      <td><button class="danger-btn" onclick="askDeleteUser(${u.id})">Delete</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="10" class="empty">No users</td></tr>`;
+}
+
+function renderReports() {
+  document.getElementById('reportsBody').innerHTML = adminData.reports.map(r => `
+    <tr><td>${r.id}</td><td>${userMini(r.reporter, r.reporter_id, r.reporter_email)}</td><td>${userMini(r.reported, r.reported_id, r.reported_email)}</td><td>${r.session_id || '-'}</td><td>${esc(r.reason)}</td><td>${esc(r.notes || '-')}</td><td>${pill(r.status, r.status === 'pending' ? 'warn' : 'ok')}</td><td>${date(r.created_at)}</td></tr>
+  `).join('') || `<tr><td colspan="8" class="empty">No reports</td></tr>`;
+}
+
+function renderSessions() {
+  document.getElementById('sessionsBody').innerHTML = adminData.sessions.map(s => `
+    <tr><td>${s.id}</td><td>${s.user1_id} / ${s.user2_id || '-'}</td><td>${esc(s.type)}</td><td>${date(s.started_at)}</td><td>${date(s.ended_at)}</td><td>${seconds(s.duration_seconds)}</td><td>${s.tokens_spent}</td><td>${s.message_count}</td></tr>
+  `).join('') || `<tr><td colspan="8" class="empty">No sessions</td></tr>`;
+}
+
+function renderPurchases() {
+  document.getElementById('purchasesBody').innerHTML = adminData.purchases.map(p => `
+    <tr><td>${p.id}</td><td>${p.user_id}<br><span class="muted">${esc(p.email || '')}</span></td><td>${p.total_tokens}<br><span class="muted">${p.tokens_purchased}+${p.bonus_tokens}</span></td><td>${money(p.amount_cents)} ${esc(p.currency || '')}</td><td>${pill(p.status, p.status === 'completed' ? 'ok' : p.status === 'pending' ? 'warn' : 'bad')}</td><td>${date(p.created_at)}</td><td>${date(p.completed_at)}</td></tr>
+  `).join('') || `<tr><td colspan="7" class="empty">No purchases</td></tr>`;
+}
+
+function renderCashouts() {
+  document.getElementById('cashoutsBody').innerHTML = (adminData.withdrawals || []).map(w => `
+    <tr>
+      <td>${w.id}</td>
+      <td>${w.user_id}<br><span class="muted">${esc(w.name || '')}</span><br><span class="muted">${esc(w.email || '')}</span></td>
+      <td>${money(w.amount_cents)}</td>
+      <td>${esc(w.method)}</td>
+      <td>${esc(w.destination)}</td>
+      <td>${pill(w.status, w.status === 'pending' ? 'warn' : w.status === 'paid' ? 'ok' : 'bad')}<br><span class="muted">${esc(w.admin_note || '')}</span></td>
+      <td>${date(w.created_at)}</td>
+      <td>${date(w.processed_at)}</td>
+      <td>${w.status === 'pending' ? `<div class="cell-actions"><button class="ok-btn" onclick="updateWithdrawal(${w.id},'paid')">Paid</button><button class="danger-btn" onclick="updateWithdrawal(${w.id},'rejected')">Reject</button></div>` : '-'}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="9" class="empty">No cashout requests</td></tr>`;
+}
+
+async function updateWithdrawal(id, status) {
+  const note = status === 'paid' ? 'Manual payout completed.' : 'Rejected by admin.';
+  try {
+    const res = await fetch('/api/admin/withdrawals/' + id, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + SparkAPI.getToken(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, admin_note: note }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404) return go404();
+    if (!res.ok) throw new Error(data.error || 'Update failed.');
+    await loadAdmin();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function date(v) { return v ? new Date(v).toLocaleString() : '-'; }
+function money(cents) { return '$' + ((cents || 0) / 100).toFixed(2); }
+function seconds(s) {
+  s = Number(s || 0);
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m ? `${m}m ${sec}s` : `${sec}s`;
+}
+function pill(text, cls) { return `<span class="pill ${cls || ''}">${esc(text)}</span>`; }
+function userMini(user, fallbackId, fallbackEmail) {
+  if (!user && !fallbackId) return '<span class="muted">Unknown / deleted user</span>';
+  const name = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '';
+  const email = user?.email || fallbackEmail || '';
+  const meta = user ? `${user.age || '-'} / ${user.gender || '-'} / ${user.country || '-'}` : 'Deleted user';
+  return `<div class="mini-user"><strong>#${esc(user?.id || fallbackId)} ${esc(name || 'User')}</strong><span>${esc(email)}</span><span>${esc(meta)}</span></div>`;
+}
+
+function askDeleteUser(userId) {
+  const user = adminData.users.find(u => u.id === userId);
+  if (!user) return;
+  pendingDeleteUser = user;
+  document.getElementById('deleteText').textContent = `Delete ${user.first_name} ${user.last_name || ''} (${user.email})? This removes the account and related private data.`;
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function closeDeleteModal() {
+  pendingDeleteUser = null;
+  document.getElementById('deleteModal').classList.remove('open');
+}
+
+async function confirmDeleteUser() {
+  if (!pendingDeleteUser) return;
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+  try {
+    const res = await fetch('/api/admin/users/' + pendingDeleteUser.id, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + SparkAPI.getToken() },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 404) return go404();
+    if (!res.ok) throw new Error(data.error || 'Delete failed.');
+    closeDeleteModal();
+    await loadAdmin();
+  } catch (e) {
+    document.getElementById('deleteText').textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Delete Account';
+  }
+}
+
+loadAdmin();
+</script>
+<div class="modal" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-title">Delete Account</div>
+    <div class="modal-text" id="deleteText"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeDeleteModal()">Cancel</button>
+      <button class="danger-btn" id="confirmDeleteBtn" onclick="confirmDeleteUser()">Delete Account</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

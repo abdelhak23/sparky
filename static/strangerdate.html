@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark — Meet Strangers, Feel Alive</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#0b0a10; --surface:#13121c; --card:#1a1827;
+    --accent1:#ff4e6a; --accent2:#ff8c42; --accent3:#c77dff;
+    --text:#f0ecff; --muted:#7b78a0;
+    --border:rgba(255,255,255,0.07);
+    --glow1:rgba(255,78,106,0.35); --glow2:rgba(199,125,255,0.25);
+  }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; overflow-x:hidden; }
+
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size:200px; pointer-events:none; z-index:1000; opacity:.5;
+  }
+
+  /* NAV */
+  nav { position:fixed; top:0; left:0; right:0; z-index:200; display:flex; align-items:center; justify-content:space-between; padding:22px 56px; background:linear-gradient(to bottom,rgba(11,10,16,.95),transparent); backdrop-filter:blur(4px); }
+  .logo { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:900; letter-spacing:-.5px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .nav-links { display:flex; gap:36px; align-items:center; }
+  .nav-links a { text-decoration:none; color:var(--muted); font-size:.9rem; font-weight:400; transition:color .25s; }
+  .nav-links a:hover { color:var(--text); }
+  .btn-nav { background:var(--accent1); color:#fff; border:none; padding:10px 24px; border-radius:50px; font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; cursor:pointer; transition:transform .2s,box-shadow .2s; box-shadow:0 0 20px var(--glow1); }
+  .btn-nav:hover { transform:translateY(-2px); box-shadow:0 0 40px var(--glow1); }
+
+  /* HERO */
+  .hero { min-height:100vh; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; padding:120px 24px 80px; overflow:hidden; }
+  .blob { position:absolute; border-radius:50%; filter:blur(90px); animation:drift 8s ease-in-out infinite alternate; pointer-events:none; will-change:transform; }
+  .blob1 { width:520px; height:520px; background:var(--glow1); top:-100px; left:-120px; }
+  .blob2 { width:400px; height:400px; background:var(--glow2); bottom:-80px; right:-80px; animation-delay:-3s; }
+  .blob3 { width:260px; height:260px; background:rgba(255,140,66,.18); top:40%; left:55%; animation-delay:-5s; }
+  @keyframes drift { from{transform:translate(0,0) scale(1)} to{transform:translate(30px,20px) scale(1.08)} }
+  .orb { position:absolute; border-radius:50%; pointer-events:none; background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.15),transparent 70%); border:1px solid rgba(255,255,255,.06); animation:floatOrb var(--dur,7s) ease-in-out infinite alternate; }
+  @keyframes floatOrb { from{transform:translateY(0)} to{transform:translateY(-18px)} }
+  .hero-inner { position:relative; z-index:2; max-width:820px; }
+  .online-pill { display:inline-flex; align-items:center; gap:8px; background:rgba(72,199,190,.1); border:1px solid rgba(72,199,190,.25); color:#48c7be; font-size:.8rem; padding:6px 16px; border-radius:50px; margin-bottom:20px; animation:fadeUp .8s .05s ease both; }
+  .green-dot { width:6px; height:6px; border-radius:50%; background:#48c7be; animation:pulse 1.6s infinite; }
+  .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(255,78,106,.12); border:1px solid rgba(255,78,106,.3); color:var(--accent1); font-size:.78rem; font-weight:500; letter-spacing:1.2px; text-transform:uppercase; padding:6px 18px; border-radius:50px; margin-bottom:32px; animation:fadeUp .8s ease both; }
+  .pulse-dot { width:7px; height:7px; border-radius:50%; background:var(--accent1); animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+  h1 { font-family:'Playfair Display',serif; font-size:clamp(3.2rem,8vw,6.4rem); font-weight:900; line-height:1.04; letter-spacing:-2px; margin-bottom:28px; animation:fadeUp .9s .1s ease both; }
+  h1 em { font-style:italic; background:linear-gradient(135deg,var(--accent1) 0%,var(--accent2) 60%,var(--accent3) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero-sub { font-size:1.15rem; color:var(--muted); max-width:560px; margin:0 auto 52px; line-height:1.75; font-weight:300; animation:fadeUp 1s .2s ease both; }
+  .hero-cta { display:flex; align-items:center; justify-content:center; gap:16px; flex-wrap:wrap; animation:fadeUp 1s .3s ease both; }
+  .btn-primary { display:inline-flex; align-items:center; gap:10px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; border:none; padding:16px 38px; border-radius:50px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:500; cursor:pointer; box-shadow:0 8px 40px var(--glow1); transition:transform .2s,box-shadow .25s; }
+  .btn-primary:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 16px 60px var(--glow1); }
+  .btn-secondary { display:inline-flex; align-items:center; gap:10px; background:transparent; color:var(--text); border:1px solid var(--border); padding:16px 36px; border-radius:50px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:400; cursor:pointer; transition:border-color .25s,background .25s,transform .2s; }
+  .btn-secondary:hover { border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.04); transform:translateY(-2px); }
+  .hero-stat { margin-top:72px; display:flex; justify-content:center; gap:60px; flex-wrap:wrap; animation:fadeUp 1s .45s ease both; }
+  .stat-item { text-align:center; }
+  .stat-num { font-family:'Playfair Display',serif; font-size:2.4rem; font-weight:700; background:linear-gradient(135deg,var(--text),var(--muted)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .stat-label { font-size:.8rem; color:var(--muted); letter-spacing:.5px; margin-top:4px; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+  .scroll-indicator { position:absolute; bottom:40px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted); font-size:.72rem; letter-spacing:1.5px; text-transform:uppercase; animation:fadeUp 1.2s .8s ease both; }
+  .scroll-line { width:1px; height:40px; background:linear-gradient(to bottom,var(--accent1),transparent); animation:lineGrow 1.8s ease-in-out infinite; }
+  @keyframes lineGrow { 0%,100%{transform:scaleY(1) translateY(0);opacity:1} 50%{transform:scaleY(.5) translateY(10px);opacity:.4} }
+
+  /* STRIP */
+  .preview-strip { padding:0 0 100px; overflow:hidden; }
+  .strip-label { text-align:center; font-size:.75rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:28px; }
+  .cards-row { display:flex; gap:20px; padding:0 40px; animation:scroll-row 22s linear infinite; width:max-content; }
+  @keyframes scroll-row { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+  .tilt-wrapper { perspective:900px; flex-shrink:0; }
+  .vid-card { width:200px; height:280px; border-radius:20px; background:var(--card); border:1px solid var(--border); overflow:hidden; position:relative; transform-style:preserve-3d; will-change:transform; transition:transform .15s ease-out,box-shadow .15s ease-out; }
+  .vid-card::after { content:''; position:absolute; inset:0; border-radius:20px; background:linear-gradient(135deg,rgba(255,255,255,.08) 0%,transparent 60%); pointer-events:none; opacity:0; transition:opacity .3s; }
+  .vid-card:hover::after { opacity:1; }
+  .vid-card-inner { width:100%; height:100%; background:linear-gradient(160deg,var(--surface),var(--card)); display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:18px; }
+  .avatar-circle { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:rgba(255,255,255,.85); position:absolute; top:50%; left:50%; transform:translate(-50%,-60%); box-shadow:0 8px 30px rgba(0,0,0,.4); }
+  .vid-info { width:100%; }
+  .vid-name { font-size:.92rem; font-weight:500; }
+  .vid-meta { font-size:.75rem; color:var(--muted); margin-top:3px; }
+  .live-badge { position:absolute; top:14px; left:14px; background:var(--accent1); color:#fff; font-size:.65rem; font-weight:600; letter-spacing:.8px; text-transform:uppercase; padding:3px 10px; border-radius:50px; display:flex; align-items:center; gap:5px; }
+  .online-dot { width:5px; height:5px; border-radius:50%; background:#fff; animation:pulse 1.2s infinite; }
+
+  /* SECTIONS */
+  section { padding:110px 40px; }
+  .section-label { text-align:center; font-size:.75rem; letter-spacing:2.5px; text-transform:uppercase; color:var(--accent3); margin-bottom:18px; }
+  .section-title { font-family:'Playfair Display',serif; font-size:clamp(2.2rem,5vw,3.6rem); font-weight:700; text-align:center; line-height:1.1; letter-spacing:-1px; max-width:700px; margin:0 auto 70px; }
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:28px; max-width:1100px; margin:0 auto; }
+  .step-card { background:var(--card); border:1px solid var(--border); border-radius:24px; padding:40px 32px; position:relative; transform-style:preserve-3d; will-change:transform; transition:box-shadow .2s; }
+  .step-card::before { content:''; position:absolute; inset:0; border-radius:24px; background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.07) 0%,transparent 60%); pointer-events:none; opacity:0; transition:opacity .3s; }
+  .step-card:hover { box-shadow:0 30px 70px rgba(0,0,0,.5); }
+  .step-card:hover::before { opacity:1; }
+  .step-num { font-family:'Playfair Display',serif; font-size:4rem; font-weight:900; line-height:1; background:linear-gradient(135deg,var(--accent1),var(--accent3)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:20px; opacity:.6; }
+  .step-icon-box { width:44px; height:44px; border-radius:12px; margin-bottom:18px; display:flex; align-items:center; justify-content:center; }
+  .step-icon-box svg { width:22px; height:22px; }
+  .step-title { font-size:1.15rem; font-weight:500; margin-bottom:12px; }
+  .step-text { color:var(--muted); font-size:.92rem; line-height:1.7; }
+  .features-bg { background:var(--surface); }
+  .features-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:2px; max-width:1100px; margin:0 auto; border-radius:28px; overflow:hidden; border:1px solid var(--border); }
+  .feat { background:var(--card); padding:44px 36px; transition:background .3s; position:relative; transform-style:preserve-3d; will-change:transform; }
+  .feat::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.07) 0%,transparent 60%); pointer-events:none; opacity:0; transition:opacity .3s; }
+  .feat:hover { background:#201e30; }
+  .feat:hover::before { opacity:1; }
+  .feat-icon { width:52px; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; margin-bottom:22px; }
+  .feat-icon svg { width:24px; height:24px; }
+  .feat-icon.red{background:rgba(255,78,106,.15)} .feat-icon.orange{background:rgba(255,140,66,.15)} .feat-icon.purple{background:rgba(199,125,255,.15)} .feat-icon.teal{background:rgba(72,199,190,.15)} .feat-icon.pink{background:rgba(255,100,180,.15)} .feat-icon.blue{background:rgba(100,160,255,.15)}
+  .feat-title { font-size:1.1rem; font-weight:500; margin-bottom:10px; }
+  .feat-text { color:var(--muted); font-size:.9rem; line-height:1.7; }
+  .testimonials { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
+  .testi { background:var(--card); border:1px solid var(--border); border-radius:24px; padding:36px; position:relative; transform-style:preserve-3d; will-change:transform; }
+  .testi::before { content:''; position:absolute; inset:0; border-radius:24px; background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.07) 0%,transparent 60%); pointer-events:none; opacity:0; transition:opacity .3s; }
+  .testi:hover::before { opacity:1; }
+  .stars { color:var(--accent2); font-size:1rem; margin-bottom:18px; letter-spacing:2px; }
+  .testi-text { color:#ccc9e8; font-size:.95rem; line-height:1.75; margin-bottom:24px; font-style:italic; }
+  .testi-author { display:flex; align-items:center; gap:14px; }
+  .testi-avatar { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:1.1rem; font-weight:700; color:rgba(255,255,255,.8); }
+  .testi-name { font-weight:500; font-size:.92rem; }
+  .testi-loc { font-size:.78rem; color:var(--muted); }
+  .cta-section { text-align:center; background:radial-gradient(ellipse at center,rgba(255,78,106,.12) 0%,transparent 70%); position:relative; overflow:hidden; }
+  .cta-section h2 { font-family:'Playfair Display',serif; font-size:clamp(2.4rem,6vw,4.5rem); font-weight:900; letter-spacing:-1.5px; line-height:1.08; margin-bottom:22px; }
+  .cta-section p { color:var(--muted); font-size:1.1rem; margin-bottom:48px; max-width:500px; margin-left:auto; margin-right:auto; }
+  .cta-actions { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
+  footer { border-top:1px solid var(--border); padding:56px 56px 40px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:40px; }
+  .footer-brand .logo { font-size:1.4rem; }
+  .footer-brand p { color:var(--muted); font-size:.85rem; margin-top:12px; max-width:240px; line-height:1.7; }
+  .footer-links { display:flex; gap:60px; flex-wrap:wrap; }
+  .footer-col h4 { font-size:.8rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:18px; }
+  .footer-col a { display:block; text-decoration:none; color:#7b78a0; font-size:.88rem; margin-bottom:12px; transition:color .2s; }
+  .footer-col a:hover { color:var(--text); }
+  .footer-bottom { border-top:1px solid var(--border); padding:24px 56px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; }
+  .footer-bottom p { color:var(--muted); font-size:.8rem; }
+  .social-links { display:flex; gap:16px; }
+  .social-links a { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:600; text-decoration:none; color:var(--muted); transition:border-color .2s,color .2s,transform .2s; }
+  .social-links a:hover { border-color:var(--accent1); color:var(--accent1); transform:translateY(-3px); }
+
+  /* ═══════════════════════════════════════
+     LOGIN POPUP MODAL
+  ═══════════════════════════════════════ */
+  .modal-overlay {
+    position:fixed; inset:0; z-index:9000;
+    background:rgba(7,6,14,.85);
+    backdrop-filter:blur(12px);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .35s ease;
+  }
+  .modal-overlay.open { opacity:1; pointer-events:all; }
+
+  .modal {
+    background:var(--card);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:28px;
+    padding:48px 44px 40px;
+    width:100%; max-width:420px;
+    position:relative;
+    box-shadow:0 40px 100px rgba(0,0,0,.7), 0 0 0 1px rgba(255,78,106,.08);
+    transform:translateY(28px) scale(.97);
+    transition:transform .35s cubic-bezier(.23,1,.32,1);
+  }
+  .modal-overlay.open .modal { transform:translateY(0) scale(1); }
+
+  .modal-close {
+    position:absolute; top:18px; right:20px;
+    background:none; border:none; color:var(--muted); font-size:1.3rem;
+    cursor:pointer; line-height:1; padding:4px 8px; border-radius:8px;
+    transition:color .2s, background .2s;
+  }
+  .modal-close:hover { color:var(--text); background:rgba(255,255,255,.06); }
+
+  .modal-logo { font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:900; background:linear-gradient(135deg,var(--accent1),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:6px; }
+  .modal-tagline { color:var(--muted); font-size:.85rem; margin-bottom:32px; }
+
+  /* Tabs */
+  .modal-tabs { display:flex; gap:4px; background:rgba(255,255,255,.04); padding:4px; border-radius:12px; margin-bottom:28px; }
+  .tab-btn { flex:1; padding:9px; border:none; background:transparent; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:500; border-radius:9px; cursor:pointer; transition:background .2s,color .2s; }
+  .tab-btn.active { background:var(--accent1); color:#fff; box-shadow:0 4px 16px rgba(255,78,106,.4); }
+
+  /* Social buttons */
+  .social-btn {
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04);
+    color:var(--text); border-radius:12px; padding:12px; font-family:'DM Sans',sans-serif;
+    font-size:.9rem; font-weight:400; cursor:pointer; margin-bottom:10px;
+    transition:background .2s,border-color .2s,transform .15s;
+  }
+  .social-btn:hover { background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.2); transform:translateY(-1px); }
+  .social-btn svg { flex-shrink:0; }
+
+  .divider { display:flex; align-items:center; gap:12px; margin:20px 0; color:var(--muted); font-size:.78rem; letter-spacing:.5px; }
+  .divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* Form */
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:.78rem; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; margin-bottom:7px; }
+  .form-group input {
+    width:100%; background:rgba(255,255,255,.05); border:1px solid var(--border);
+    border-radius:12px; padding:13px 16px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:.95rem; outline:none;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .form-group input:focus { border-color:var(--accent1); box-shadow:0 0 0 3px rgba(255,78,106,.15); }
+  .form-group input::placeholder { color:var(--muted); }
+  .pw-field { position:relative; }
+  .pw-field input { padding-right:46px; }
+  .pw-toggle {
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    width:32px; height:32px; border:none; border-radius:8px;
+    background:transparent; color:var(--muted); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .2s,color .2s;
+  }
+  .pw-toggle:hover { background:rgba(255,255,255,.06); color:var(--text); }
+  .pw-toggle svg { width:18px; height:18px; }
+
+  .forgot-link { display:block; text-align:right; font-size:.8rem; color:var(--muted); text-decoration:none; margin-top:-8px; margin-bottom:20px; transition:color .2s; }
+  .forgot-link:hover { color:var(--accent1); }
+
+  .btn-submit { width:100%; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; border:none; border-radius:12px; padding:14px; font-family:'DM Sans',sans-serif; font-size:1rem; font-weight:500; cursor:pointer; box-shadow:0 6px 28px var(--glow1); transition:transform .2s,box-shadow .2s; margin-top:4px; }
+  .btn-submit:hover { transform:translateY(-2px); box-shadow:0 10px 40px var(--glow1); }
+
+  .modal-footer-note { text-align:center; font-size:.8rem; color:var(--muted); margin-top:20px; }
+  .modal-footer-note a { color:var(--accent1); text-decoration:none; }
+  .modal-footer-note a:hover { text-decoration:underline; }
+
+  /* Terms */
+  .terms-note { font-size:.72rem; color:var(--muted); text-align:center; margin-top:16px; line-height:1.6; }
+  .terms-note a { color:var(--muted); text-decoration:underline; }
+
+  /* Panel switching */
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  .notice-overlay { position:fixed; inset:0; z-index:10000; background:rgba(7,6,14,.76); backdrop-filter:blur(10px); display:none; align-items:center; justify-content:center; padding:20px; }
+  .notice-overlay.open { display:flex; }
+  .notice-box { width:100%; max-width:390px; background:var(--card); border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:26px; box-shadow:0 24px 80px rgba(0,0,0,.65); animation:noticeIn .22s ease; }
+  @keyframes noticeIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:translateY(0) scale(1)} }
+  .notice-title { font-family:'Playfair Display',serif; font-size:1.35rem; font-weight:700; margin-bottom:8px; }
+  .notice-message { color:var(--muted); font-size:.92rem; line-height:1.65; margin-bottom:20px; white-space:pre-line; }
+  .notice-btn { width:100%; background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff; border:none; border-radius:12px; padding:12px; font-family:'DM Sans',sans-serif; font-size:.94rem; cursor:pointer; }
+
+  /* Full page link */
+  .modal-full-link { display:block; text-align:center; font-size:.82rem; color:var(--muted); margin-top:18px; text-decoration:none; transition:color .2s; }
+  .modal-full-link:hover { color:var(--text); }
+
+  @media(max-width:700px) {
+    nav{padding:18px 24px} .nav-links{display:none}
+    footer{padding:40px 24px} .footer-bottom{padding:20px 24px}
+    .hero-stat{gap:32px} section{padding:80px 24px}
+    .modal{padding:36px 24px 30px; margin:16px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Spark</div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#stories">Stories</a>
+    <a href="/friends.html" style="color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:400;transition:color .25s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Friends</a>
+    <a href="/chat.html" style="color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:400;transition:color .25s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Messages</a>
+    <a href="/profile.html" style="color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:400;transition:color .25s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Profile</a>
+  </div>
+  <button class="btn-nav spark-trigger" data-target="/videochat.html">Start Chatting</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="heroSection">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+  <div class="orb" style="width:120px;height:120px;top:18%;left:8%;--dur:6s;animation-delay:-1s;"></div>
+  <div class="orb" style="width:70px;height:70px;top:65%;left:80%;--dur:9s;animation-delay:-3s;"></div>
+  <div class="orb" style="width:55px;height:55px;top:30%;left:88%;--dur:7.5s;animation-delay:-5s;"></div>
+  <div class="orb" style="width:90px;height:90px;top:75%;left:14%;--dur:8s;animation-delay:-2s;"></div>
+  <div class="hero-inner">
+    <div class="online-pill"><span class="green-dot"></span>12,480 people online right now</div>
+    <div class="hero-badge"><span class="pulse-dot"></span>No algorithms. No matches. Only real moments.</div>
+    <h1>Meet a <em>stranger,</em><br>feel something <em>real.</em></h1>
+    <p class="hero-sub">Spark connects you face-to-face with someone completely random, anywhere in the world. One click. One conversation. Infinite possibility.</p>
+    <div class="hero-cta">
+      <button class="btn-primary spark-trigger" data-target="/videochat.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+        Start Video Chat
+      </button>
+    </div>
+    <div class="hero-stat">
+      <div class="stat-item"><div class="stat-num">4.2M+</div><div class="stat-label">Connections Made</div></div>
+      <div class="stat-item"><div class="stat-num">190+</div><div class="stat-label">Countries Reached</div></div>
+      <div class="stat-item"><div class="stat-num">~8 sec</div><div class="stat-label">Avg. Match Wait</div></div>
+    </div>
+  </div>
+  <div class="scroll-indicator"><span>Scroll</span><div class="scroll-line"></div></div>
+</section>
+
+<!-- LIVE STRIP -->
+<div class="preview-strip">
+  <p class="strip-label">Live right now</p>
+  <div style="overflow:hidden;">
+    <div class="cards-row">
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,78,106,.2)">A</div><div class="vid-info"><div class="vid-name">Alex, 24</div><div class="vid-meta">New York, US</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(199,125,255,.2)">P</div><div class="vid-info"><div class="vid-name">Priya, 27</div><div class="vid-meta">Mumbai, IN</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,140,66,.2)">C</div><div class="vid-info"><div class="vid-name">Carlos, 30</div><div class="vid-meta">São Paulo, BR</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(72,199,190,.2)">S</div><div class="vid-info"><div class="vid-name">Sofia, 22</div><div class="vid-meta">Berlin, DE</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(100,160,255,.2)">Y</div><div class="vid-info"><div class="vid-name">Yusuf, 26</div><div class="vid-meta">Istanbul, TR</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,100,180,.2)">A</div><div class="vid-info"><div class="vid-name">Amara, 25</div><div class="vid-meta">Lagos, NG</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,78,106,.2)">J</div><div class="vid-info"><div class="vid-name">Jin, 29</div><div class="vid-meta">Seoul, KR</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,78,106,.2)">A</div><div class="vid-info"><div class="vid-name">Alex, 24</div><div class="vid-meta">New York, US</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(199,125,255,.2)">P</div><div class="vid-info"><div class="vid-name">Priya, 27</div><div class="vid-meta">Mumbai, IN</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,140,66,.2)">C</div><div class="vid-info"><div class="vid-name">Carlos, 30</div><div class="vid-meta">São Paulo, BR</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(72,199,190,.2)">S</div><div class="vid-info"><div class="vid-name">Sofia, 22</div><div class="vid-meta">Berlin, DE</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(100,160,255,.2)">Y</div><div class="vid-info"><div class="vid-name">Yusuf, 26</div><div class="vid-meta">Istanbul, TR</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,100,180,.2)">A</div><div class="vid-info"><div class="vid-name">Amara, 25</div><div class="vid-meta">Lagos, NG</div></div></div></div></div>
+      <div class="tilt-wrapper"><div class="vid-card tilt3d"><div class="vid-card-inner"><div class="live-badge"><span class="online-dot"></span>Live</div><div class="avatar-circle" style="background:rgba(255,78,106,.2)">J</div><div class="vid-info"><div class="vid-name">Jin, 29</div><div class="vid-meta">Seoul, KR</div></div></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <p class="section-label">How it works</p>
+  <h2 class="section-title">Three steps to your next great conversation</h2>
+  <div class="steps">
+    <div class="step-card tilt3d"><div class="step-num">01</div><div class="step-icon-box" style="background:rgba(255,78,106,.15)"><svg viewBox="0 0 24 24" fill="none" stroke="#ff4e6a" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><div class="step-title">Jump in instantly</div><p class="step-text">No profiles. No setup. No swiping. Just click Start and you're live with a real stranger in seconds.</p></div>
+    <div class="step-card tilt3d"><div class="step-num">02</div><div class="step-icon-box" style="background:rgba(199,125,255,.15)"><svg viewBox="0 0 24 24" fill="none" stroke="#c77dff" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div><div class="step-title">Choose your vibe</div><p class="step-text">Go face-to-face with video. Filter by language or region — or leave it totally open.</p></div>
+    <div class="step-card tilt3d"><div class="step-num">03</div><div class="step-icon-box" style="background:rgba(255,140,66,.15)"><svg viewBox="0 0 24 24" fill="none" stroke="#ff8c42" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div><div class="step-title">Skip or stay</div><p class="step-text">Feeling the spark? Keep talking. Not feeling it? One tap and you're meeting someone new. Your call, always.</p></div>
+    <div class="step-card tilt3d"><div class="step-num">04</div><div class="step-icon-box" style="background:rgba(72,199,190,.15)"><svg viewBox="0 0 24 24" fill="none" stroke="#48c7be" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="step-title">Stay safe</div><p class="step-text">AI moderation, instant reporting, and a one-click block. Real connections deserve a safe space.</p></div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="features-bg">
+  <p class="section-label">Features</p>
+  <h2 class="section-title">Everything you need, nothing you don't</h2>
+  <div class="features-grid">
+    <div class="feat tilt3d"><div class="feat-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="#ff4e6a" stroke-width="2"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg></div><div class="feat-title">HD Video Chat</div><p class="feat-text">Crystal-clear video powered by WebRTC. See every smile, every raised eyebrow, every genuine laugh — in real time.</p></div>
+    <div class="feat tilt3d"><div class="feat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="#c77dff" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg></div><div class="feat-title">Global Reach</div><p class="feat-text">Connect with strangers from 190+ countries. Practice a language, discover a culture, or just see the world from your room.</p></div>
+    <div class="feat tilt3d"><div class="feat-icon teal"><svg viewBox="0 0 24 24" fill="none" stroke="#48c7be" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><circle cx="7" cy="7" r="1" fill="#48c7be"/></svg></div><div class="feat-title">Interest Tags</div><p class="feat-text">Add optional tags like music, travel, or philosophy. We'll find someone who shares them — or challenges them.</p></div>
+    <div class="feat tilt3d"><div class="feat-icon pink"><svg viewBox="0 0 24 24" fill="none" stroke="#ff64b4" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></div><div class="feat-title">Virtual Gifts</div><p class="feat-text">Send a spark or a reaction. Little moments that make conversations unforgettable.</p></div>
+    <div class="feat tilt3d"><div class="feat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="#64a0ff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="feat-title">AI Safety Shield</div><p class="feat-text">Real-time moderation, verified age checks, and a zero-tolerance policy for harassment. Fun without the fear.</p></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="stories">
+  <p class="section-label">Real stories</p>
+  <h2 class="section-title">Strangers who became something more</h2>
+  <div class="testimonials">
+    <div class="testi tilt3d"><div class="stars">★★★★★</div><p class="testi-text">"I clicked Start on a random Tuesday night. Three hours later I was still talking to this guy from Tokyo about jazz and life. We still text every day."</p><div class="testi-author"><div class="testi-avatar" style="background:rgba(255,78,106,.15)">M</div><div><div class="testi-name">Maya R.</div><div class="testi-loc">Toronto, Canada</div></div></div></div>
+    <div class="testi tilt3d"><div class="stars">★★★★★</div><p class="testi-text">"I hate apps where you craft a perfect bio. Spark just throws you in. Scary at first, but after a few seconds it's the most natural thing. Met my best friend here."</p><div class="testi-author"><div class="testi-avatar" style="background:rgba(199,125,255,.15)">D</div><div><div class="testi-name">Daniel K.</div><div class="testi-loc">Amsterdam, Netherlands</div></div></div></div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Your next great<br><em style="font-style:italic;background:linear-gradient(135deg,var(--accent1),var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">connection</em> is<br>one click away.</h2>
+  <p>No account. No swiping. No waiting. Just press Start and meet someone new right now.</p>
+  <div class="cta-actions">
+    <button class="btn-primary spark-trigger" data-target="/videochat.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M15 10l4.553-2.069A1 1 0 0121 8.874v6.252a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>Video Chat — It's Free</button>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-brand"><div class="logo">Spark</div><p>Connecting strangers, one spark at a time. No algorithms, just humans.</p></div>
+  <div class="footer-links">
+    <div class="footer-col"><h4>Product</h4><a href="#">Video Chat</a><a href="#">Safety Center</a><a href="#">Mobile App</a></div>
+    <div class="footer-col"><h4>Company</h4><a href="#">About</a><a href="#">Blog</a><a href="#">Careers</a><a href="#">Press</a></div>
+    <div class="footer-col"><h4>Legal</h4><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Community Rules</a><a href="#">Cookie Policy</a></div>
+  </div>
+</footer>
+<div class="footer-bottom">
+  <p>© 2026 Spark. All rights reserved. Made for curious humans everywhere.</p>
+  <div class="social-links"><a href="#">X</a><a href="#">in</a><a href="#">ig</a><a href="#">yt</a></div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN POPUP MODAL
+════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modalClose">&#x2715;</button>
+
+    <div class="modal-logo">Spark</div>
+    <p class="modal-tagline">Sign in to start connecting with the world.</p>
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <button class="tab-btn active" data-tab="login">Sign In</button>
+      <button class="tab-btn" data-tab="signup">Create Account</button>
+    </div>
+
+    <!-- Social -->
+    
+
+    <!-- LOGIN PANEL -->
+    <div class="tab-panel active" id="panel-login">
+      <div class="form-group">
+        <label>Email address</label>
+        <input type="email" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="pw-field">
+          <input type="password" id="modalLoginPw" placeholder="••••••••">
+          <button type="button" class="pw-toggle" onclick="toggleModalPw('modalLoginPw',this)" aria-label="Show password">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <a href="login.html#forgot" class="forgot-link">Forgot password?</a>
+      <button class="btn-submit" >Sign In to Spark</button>
+      <p class="modal-footer-note">Don't have an account? <a href="#" class="switch-tab" data-target="signup">Create one</a></p>
+      <a href="login.html" class="modal-full-link">Open full sign-in page &rarr;</a>
+    </div>
+
+    <!-- SIGNUP PANEL -->
+    <div class="tab-panel" id="panel-signup">
+      <div class="form-group">
+        <label>Full name</label>
+        <input type="text" id="regName" placeholder="Your name">
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:.78rem;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px;">Age</label>
+          <input type="number" id="regAge" placeholder="18+" min="18" style="width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s;">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:.78rem;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px;">Sex</label>
+          <select id="regGender" style="width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s;appearance:none;">
+            <option value="" disabled selected>Select...</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email address</label>
+        <input type="email" id="regEmail" placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div class="pw-field">
+          <input type="password" id="regPw" placeholder="Create a strong password">
+          <button type="button" class="pw-toggle" onclick="toggleModalPw('regPw',this)" aria-label="Show password">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn-submit" style="margin-top:16px" >Create My Account</button>
+      <p class="modal-footer-note">Already have an account? <a href="#" class="switch-tab" data-target="login">Sign in</a></p>
+      <p class="terms-note">By creating an account you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="notice-overlay" id="noticeOverlay">
+  <div class="notice-box">
+    <div class="notice-title" id="noticeTitle">Notice</div>
+    <div class="notice-message" id="noticeMessage"></div>
+    <button class="notice-btn" id="noticeBtn">OK</button>
+  </div>
+</div>
+
+<script>
+/* ── MODAL ── */
+const overlay = document.getElementById('modalOverlay');
+const closeBtn = document.getElementById('modalClose');
+
+window._pendingTarget = '/videochat.html';
+
+document.querySelectorAll('.spark-trigger').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    window._pendingTarget = btn.dataset.target || '/videochat.html';
+    
+    if (window.SparkAPI && window.SparkAPI.isLoggedIn()) {
+      window.location.href = window._pendingTarget;
+      return;
+    }
+    
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  });
+});
+
+function closeModal() {
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+closeBtn.addEventListener('click', closeModal);
+overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ── TABS ── */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+document.querySelectorAll('.switch-tab').forEach(link => {
+  link.addEventListener('click', e => { e.preventDefault(); switchTab(link.dataset.target); });
+});
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+}
+
+function toggleModalPw(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  btn.querySelector('svg').innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+function showNotice(title, message, buttonText = 'OK') {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('noticeOverlay');
+    const btn = document.getElementById('noticeBtn');
+    document.getElementById('noticeTitle').textContent = title;
+    document.getElementById('noticeMessage').textContent = message;
+    btn.textContent = buttonText;
+    overlay.classList.add('open');
+    btn.onclick = () => { overlay.classList.remove('open'); resolve(); };
+  });
+}
+
+/* ── 3-D TILT ── */
+function applyTilt(el, maxT) {
+  el.addEventListener('mousemove', e => {
+    const r = el.getBoundingClientRect();
+    const dx = (e.clientX-(r.left+r.width/2))/(r.width/2);
+    const dy = (e.clientY-(r.top+r.height/2))/(r.height/2);
+    el.style.transition = 'transform 0.05s linear,box-shadow 0.1s';
+    el.style.transform  = `perspective(700px) rotateY(${dx*maxT}deg) rotateX(${-dy*maxT}deg) scale(1.04) translateZ(10px)`;
+    el.style.boxShadow  = `${-dx*14}px ${-dy*14}px 44px rgba(0,0,0,.55),0 0 28px rgba(255,78,106,.1)`;
+    el.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+    el.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+  });
+  el.addEventListener('mouseleave', () => {
+    el.style.transition = 'transform 0.55s cubic-bezier(.23,1,.32,1),box-shadow 0.45s';
+    el.style.transform  = 'perspective(700px) rotateY(0) rotateX(0) scale(1) translateZ(0)';
+    el.style.boxShadow  = '';
+  });
+}
+document.querySelectorAll('.tilt3d').forEach(el => applyTilt(el, el.classList.contains('vid-card') ? 18 : 11));
+
+/* ── SCROLL REVEAL ── */
+document.querySelectorAll('.step-card,.feat,.testi,.section-title,.section-label').forEach(el => {
+  el.style.opacity = '0'; el.style.transform = 'translateY(28px)';
+  el.style.transition = 'opacity 0.65s ease,transform 0.65s ease';
+  new IntersectionObserver(entries => {
+    entries.forEach(e => { if (!e.isIntersecting) return; e.target.style.opacity='1'; e.target.style.transform='translateY(0)'; });
+  }, {threshold:0.12}).observe(el);
+});
+
+/* ── COUNTERS ── */
+document.querySelectorAll('.stat-num').forEach(el => {
+  new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const raw=el.textContent, num=parseFloat(raw.replace(/[^0-9.]/g,'')), suffix=raw.replace(/[0-9.]/g,'');
+      let cur=0; const step=num/55;
+      const t=setInterval(()=>{ cur=Math.min(cur+step,num); el.textContent=(Number.isInteger(num)?Math.round(cur):cur.toFixed(1))+suffix; if(cur>=num)clearInterval(t); },16);
+    });
+  },{threshold:0.5}).observe(el);
+});
+</script>
+
+  <!-- ── Spark API ── -->
+  <script src="/spark-api.js"></script>
+  <script>
+  // Update modal login/signup to call real API
+  (function() {
+    const loginBtn  = document.querySelector('#panel-login .btn-submit');
+    const signupBtn = document.querySelector('#panel-signup .btn-submit');
+    if (!loginBtn || !signupBtn) return;
+
+    loginBtn.onclick = null;
+    loginBtn.addEventListener('click', async function() {
+      const email = document.querySelector('#panel-login input[type=email]').value.trim();
+      const pw    = document.querySelector('#panel-login input[type=password]').value;
+      if (!email || !pw) { await showNotice('Missing details', 'Please fill in email and password.'); return; }
+      this.textContent = 'Signing in...'; this.disabled = true;
+      try {
+        await SparkAPI.login(email, pw);
+        window.location.href = window._pendingTarget || '/videochat.html';
+      } catch (e) {
+        if (e.data?.needs_verification) {
+          await SparkAPI.resendVerification(email).catch(() => null);
+          await showNotice('Verify your email', 'A new OTP code was sent to your email. Enter it on the verification page before signing in.', 'Enter OTP');
+          window.location.href = '/verify-email.html?email=' + encodeURIComponent(email);
+        } else {
+          await showNotice('Sign in failed', e.message || 'Login failed.');
+        }
+        this.textContent = 'Sign In to Spark'; this.disabled = false;
+      }
+    });
+
+    signupBtn.onclick = null;
+    signupBtn.addEventListener('click', async function() {
+      const name    = document.getElementById('regName').value.trim();
+      const age     = document.getElementById('regAge').value;
+      const gender  = document.getElementById('regGender').value;
+      const email   = document.getElementById('regEmail').value.trim();
+      const pw      = document.getElementById('regPw').value;
+      if (!name || !email || !pw || !age || !gender) { await showNotice('Missing details', 'Please fill in all fields.'); return; }
+      this.textContent = 'Creating account...'; this.disabled = true;
+      try {
+        const res = await SparkAPI.register(name, '', email, pw, age, gender);
+        await showNotice(
+          'Check your email',
+          res.email_sent
+            ? 'Account created. Enter the OTP code sent to your email.'
+            : 'Account created, but the OTP email could not be sent. Please try resending the code from the verification page.',
+          'Enter OTP'
+        );
+        window.location.href = '/verify-email.html?email=' + encodeURIComponent(email);
+      } catch (e) {
+        await showNotice('Sign up failed', e.message || 'Sign up failed.');
+      } finally {
+        this.textContent = 'Create My Account'; this.disabled = false;
+      }
+    });
+  })();
+  </script>
+
+</body>
+</html>
