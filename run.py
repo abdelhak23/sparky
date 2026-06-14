@@ -8,6 +8,10 @@ from app import create_app, socketio
 app = create_app()
 
 if __name__ == "__main__":
+    if os.getenv("RAILWAY_ENVIRONMENT") and not os.getenv("PORT"):
+        print("Railway build detected without PORT; skipping server start.")
+        raise SystemExit(0)
+
     socketio.run(
         app,
         host="0.0.0.0",
