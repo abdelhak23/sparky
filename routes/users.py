@@ -114,9 +114,9 @@ def turn_credentials():
     like Twilio or Xirsys.
     """
     import os
-    turn_url  = os.getenv("TURN_URL",  "").strip()
-    turn_user = os.getenv("TURN_USER", "").strip()
-    turn_pass = os.getenv("TURN_PASS", "").strip()
+    turn_url  = os.getenv("TURN_URL",  "").strip().strip("\"'")
+    turn_user = os.getenv("TURN_USER", "").strip().strip("\"'")
+    turn_pass = os.getenv("TURN_PASS", "").strip().strip("\"'")
 
     # Accept either "eu-turn3.xirsys.com" or copied values like
     # "turn:eu-turn3.xirsys.com:3478?transport=udp" from provider dashboards.
@@ -135,6 +135,7 @@ def turn_credentials():
             {
                 "username": turn_user,
                 "credential": turn_pass,
+                "credentialType": "password",
                 "urls": [
                     f"turn:{turn_url}:80?transport=udp",
                     f"turn:{turn_url}:3478?transport=udp",

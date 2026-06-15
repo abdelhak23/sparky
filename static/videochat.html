@@ -1483,6 +1483,9 @@ var _iceConfigLoaded   = false;
 var _relayFallbackTried = false;
 var _sawRelayCandidate  = false;
 var _iceRestarting      = false;
+var _turnConfigured     = false;
+var _hasRemoteStream    = false;
+var _mediaWatchTimer    = null;
 
 /* ─── ICE / TURN config ──────────────────────────────────────────────────────
    Free public TURN (openrelay) works for cross-network calls.
@@ -1506,7 +1509,12 @@ async function _loadIceConfig() {
     var data = await SparkAPI.turnCredentials();
     if (data && data.iceServers && data.iceServers.length) {
       ICE_CONFIG.iceServers = data.iceServers;
+      _turnConfigured = data.iceServers.some(function (server) {
+        var urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+        return urls.some(function (url) { return /^turns?:/i.test(url || ''); });
+      });
       console.log('[WebRTC] ICE config loaded from server:', data.iceServers.length);
+      console.log('[WebRTC] TURN configured:', _turnConfigured);
     }
   } catch (e) {
     console.warn('[WebRTC] using bundled ICE config:', e.message);
@@ -1517,7 +1525,7 @@ async function _loadIceConfig() {
 function _peerConfig() {
   var cfg = Object.assign({}, ICE_CONFIG);
   cfg.iceServers = ICE_CONFIG.iceServers.slice();
-  cfg.iceTransportPolicy = _relayFallbackTried ? 'relay' : 'all';
+  cfg.iceTransportPolicy = (_turnConfigured || _relayFallbackTried) ? 'relay' : 'all';
   cfg.iceCandidatePoolSize = 0;
   return cfg;
 }
@@ -1678,6 +1686,8 @@ function connectSocket() {
     _relayFallbackTried = false;
     _sawRelayCandidate  = false;
     _iceRestarting      = false;
+    _hasRemoteStream    = false;
+    clearTimeout(_mediaWatchTimer);
     clearInterval(searchTimer2);
 
     document.getElementById('sbAvatar').innerHTML = d.partner.avatar_url ? `<img src="${d.partner.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : (d.partner.name||'S')[0].toUpperCase();
@@ -1820,6 +1830,8 @@ function _createPC() {
     console.log('[WebRTC] ✅ ontrack:', evt.track.kind,
                 'streams:', evt.streams.length,
                 'state:', evt.track.readyState);
+    _hasRemoteStream = true;
+    clearTimeout(_mediaWatchTimer);
 
     if (!evt.streams || !evt.streams[0]) {
       console.warn('[WebRTC] ontrack: no stream attached');
@@ -1876,7 +1888,19 @@ function _createPC() {
       console.log('[WebRTC] ICE gathering complete');
       if (!_sawRelayCandidate) {
         console.warn('[WebRTC] no TURN relay candidate gathered. Cross-network media may fail.');
+        if (_turnConfigured) {
+          showToast('TURN is set, but no relay path was found. Check Xirsys credentials.');
+        }
       }
+    }
+  };
+
+  _pc.onicecandidateerror = function (evt) {
+    console.warn('[WebRTC] ICE candidate error:', evt.errorCode, evt.errorText, evt.url);
+    if (evt.errorCode === 401 || evt.errorCode === 438) {
+      showToast('TURN login failed. Regenerate Xirsys credentials.');
+    } else {
+      showToast('TURN connection error. Check Xirsys/Railway variables.');
     }
   };
 
@@ -1891,7 +1915,7 @@ function _createPC() {
     console.log('[WebRTC] connectionState:', s);
     clearTimeout(_iceRestartTimer);
     if (s === 'connected') {
-      showToast('✓ Connected!');
+      showToast(_hasRemoteStream ? '✓ Connected!' : 'Connected, waiting for video…');
     } else if (s === 'disconnected') {
       /* Wait 4s then try restart — only initiator does this */
       if (_isInitiator) {
@@ -1938,6 +1962,14 @@ async function _startRTC() {
   console.log('[WebRTC] _startRTC, initiator:', _isInitiator);
   await _loadIceConfig();
   if (!_pc) _createPC();
+  clearTimeout(_mediaWatchTimer);
+  _mediaWatchTimer = setTimeout(function () {
+    if (!_hasRemoteStream && appState === 'connected') {
+      showToast(_turnConfigured
+        ? 'No video received. TURN may be expired or blocked.'
+        : 'No video received. Add working TURN credentials.');
+    }
+  }, 9000);
   if (!_isInitiator) { console.log('[WebRTC] waiting for offer…'); return; }
   try {
     var offer = await _pc.createOffer({ offerToReceiveAudio:true, offerToReceiveVideo:true });
@@ -1994,6 +2026,7 @@ function _handleIceFailure() {
 
 function _closePC() {
   clearTimeout(_iceRestartTimer);
+  clearTimeout(_mediaWatchTimer);
   if (_pc) {
     _pc.ontrack = _pc.onicecandidate = _pc.onconnectionstatechange =
     _pc.oniceconnectionstatechange = _pc.onsignalingstatechange =
