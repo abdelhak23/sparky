@@ -12,9 +12,44 @@
 var SparkAPI = window.SparkAPI = (() => {
 
   // ── Token storage ──────────────────────────────────────────────────────────
-  function getToken()    { return localStorage.getItem("spark_token"); }
-  function setToken(t)   { localStorage.setItem("spark_token", t); }
-  function removeToken() { localStorage.removeItem("spark_token"); }
+  const TOKEN_KEY = "spark_token";
+
+  function cookieOptions() {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    return "; Max-Age=31536000; Path=/; SameSite=Lax" + secure;
+  }
+
+  function readCookie(name) {
+    return document.cookie
+      .split("; ")
+      .find(row => row.startsWith(name + "="))
+      ?.split("=")
+      .slice(1)
+      .join("=") || "";
+  }
+
+  function getToken() {
+    let token = "";
+    try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
+    if (token) return token;
+
+    token = decodeURIComponent(readCookie(TOKEN_KEY) || "");
+    if (token) {
+      try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {}
+    }
+    return token;
+  }
+
+  function setToken(t) {
+    if (!t) return;
+    try { localStorage.setItem(TOKEN_KEY, t); } catch (_) {}
+    document.cookie = TOKEN_KEY + "=" + encodeURIComponent(t) + cookieOptions();
+  }
+
+  function removeToken() {
+    try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+    document.cookie = TOKEN_KEY + "=; Max-Age=0; Path=/; SameSite=Lax";
+  }
   function isLoggedIn()  { return !!getToken(); }
 
   function authHeaders() {
