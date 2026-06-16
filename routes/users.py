@@ -111,15 +111,28 @@ def turn_credentials():
     """
     Returns ICE server config to the frontend.
     In production, you can configure your own TURN server or a service
-    like Twilio or Xirsys.
+    like Coturn, Twilio, or Xirsys.
     """
     import os
+
+    def csv_ports(name, default):
+        raw = os.getenv(name, default).strip().strip("\"'")
+        ports = []
+        for item in raw.split(","):
+            item = item.strip()
+            if item.isdigit():
+                ports.append(int(item))
+        return ports
+
     turn_url  = os.getenv("TURN_URL",  "").strip().strip("\"'")
     turn_user = os.getenv("TURN_USER", "").strip().strip("\"'")
     turn_pass = os.getenv("TURN_PASS", "").strip().strip("\"'")
+    turn_udp_ports = csv_ports("TURN_UDP_PORTS", "3478,80")
+    turn_tcp_ports = csv_ports("TURN_TCP_PORTS", "3478,80")
+    turn_tls_ports = csv_ports("TURN_TLS_PORTS", "5349,443")
 
     # Accept either "eu-turn3.xirsys.com" or copied values like
-    # "turn:eu-turn3.xirsys.com:3478?transport=udp" from provider dashboards.
+    # "turn:turn.example.com:3478?transport=udp" from provider dashboards.
     if turn_url.startswith("turns:"):
         turn_url = turn_url.removeprefix("turns:")
     elif turn_url.startswith("turn:"):
@@ -130,20 +143,17 @@ def turn_credentials():
         {"urls": "stun:stun.l.google.com:19302"},
     ]
     if turn_url:
+        turn_urls = []
+        turn_urls.extend(f"turn:{turn_url}:{port}?transport=udp" for port in turn_udp_ports)
+        turn_urls.extend(f"turn:{turn_url}:{port}?transport=tcp" for port in turn_tcp_ports)
+        turn_urls.extend(f"turns:{turn_url}:{port}?transport=tcp" for port in turn_tls_ports)
         ice_servers.extend([
-            {"urls": f"stun:{turn_url}"},
+            {"urls": [f"stun:{turn_url}:{port}" for port in turn_udp_ports] or f"stun:{turn_url}"},
             {
                 "username": turn_user,
                 "credential": turn_pass,
                 "credentialType": "password",
-                "urls": [
-                    f"turn:{turn_url}:80?transport=udp",
-                    f"turn:{turn_url}:3478?transport=udp",
-                    f"turn:{turn_url}:80?transport=tcp",
-                    f"turn:{turn_url}:3478?transport=tcp",
-                    f"turns:{turn_url}:443?transport=tcp",
-                    f"turns:{turn_url}:5349?transport=tcp",
-                ],
+                "urls": turn_urls,
             },
         ])
     return jsonify({"iceServers": ice_servers}), 200
